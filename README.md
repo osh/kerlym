@@ -1,6 +1,6 @@
 # D2QN
 
-This repo implements a Double-Q Learning Neural Network with Keras + Gym
+This repo implements a Deep Double-Q Learning Agent for OpenAI's Gym using Keras NN Primitives on top of Theano/TensorFlow
 
 
 

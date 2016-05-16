@@ -13,38 +13,7 @@ from keras.optimizers import RMSprop, Adadelta, Adam
 
 # Some example networks which can be used as the Q function approximation ...
 
-def embedding_rnn(agent, env, scalar_range=100, embedding_dim=8, dropout=0, **args):
-    S = Input(shape=[agent.input_dim])
-    h = Lambda(lambda x: K.cast(x, 'int32'))(S)
-    h = Embedding(scalar_range, embedding_dim)(h)
-    h = Reshape([agent.nframes, embedding_dim*agent.input_dim/agent.nframes])(h)
-    h = TimeDistributed(Dense(16, activation='relu', init='he_normal'))(h)
-    h = Dropout(dropout)(h)
-    h = LSTM(32, return_sequences=True)(h)
-    h = Dropout(dropout)(h)
-    h = LSTM(32)(h)
-    h = Dropout(dropout)(h)
-    #h = Flatten()(h)
-    V = Dense(env.action_space.n, activation='linear')(h)
-    model = Model(S,V)
-    model.compile(loss='mse', optimizer=Adam(lr=0.001) )
-    return model
-
-def embedding_nn(agent, env, scalar_range=100, embedding_dim=32, dropout=0, **args):
-    S = Input(shape=[agent.input_dim])
-    h = Lambda(lambda x: K.cast(x, 'int32'))(S)
-    h = Embedding(100, 32)(h)
-    h = Flatten()(h)
-    h = Dense(16, activation='relu', init='he_normal')(h)
-    h = Dropout(dropout)(h)
-    h = Dense(16, activation='relu', init='he_normal')(h)
-    h = Dropout(dropout)(h)
-    V = Dense(env.action_space.n, activation='linear')(h)
-    model = Model(S,V)
-    model.compile(loss='mse', optimizer=Adam(lr=0.001) )
-    return model
-
-def default_model_factory(agent, env, dropout=0.5, **args):
+def simple_dnn(agent, env, dropout=0.5, **args):
     S = Input(shape=[agent.input_dim])
     h = Dense(256, activation='relu', init='he_normal')(S)
     h = Dropout(dropout)(h)
@@ -55,9 +24,22 @@ def default_model_factory(agent, env, dropout=0.5, **args):
     model.compile(loss='mse', optimizer=Adam(lr=0.001) )
     return model
 
+def simple_rnn(agent, env, dropout=0, h0_width=8, h1_width=8, **args):
+    S = Input(shape=[agent.input_dim])
+    h = Reshape([agent.nframes, agent.input_dim/agent.nframes])(S)
+    h = TimeDistributed(Dense(h0_width, activation='relu', init='he_normal'))(h)
+    h = Dropout(dropout)(h)
+    h = LSTM(h1_width, return_sequences=True)(h)
+    h = Dropout(dropout)(h)
+    h = LSTM(h1_width)(h)
+    h = Dropout(dropout)(h)
+    V = Dense(env.action_space.n, activation='linear')(h)
+    model = Model(S,V)
+    model.compile(loss='mse', optimizer=Adam(lr=0.001) )
+    return model
 
 class D2QN:
-    def __init__(self, env, nframes=1, epsilon=0.1, discount=0.99, train=1, update_nsamp=1000, dropout=0, batch_size=32, nfit_epoch=1, epsilon_schedule=None, modelfactory=default_model_factory, **args):
+    def __init__(self, env, nframes=1, epsilon=0.1, discount=0.99, train=1, update_nsamp=1000, dropout=0, batch_size=32, nfit_epoch=1, epsilon_schedule=None, modelfactory=simple_dnn, **args):
         self.env = env
         self.nframes = nframes
         self.actions = range(env.action_space.n)
@@ -200,9 +182,6 @@ class D2QN:
 
         for e in xrange(max_episodes):
 
-            if not self.epsilon_schedule == None:
-                self.epsilon = self.epsilon_schedule(e, self.epsilon)
-
             observation = self.env.reset()
             done = False
             total_cost = 0.0
@@ -213,7 +192,6 @@ class D2QN:
 
             obs = np.zeros( [self.nframes]+list(self.env.observation_space.shape) )
             new_obs = np.zeros( [self.nframes]+list(self.env.observation_space.shape) )
-
             obs[0,:] = observation
 
             while (not done) and (t<max_pathlength):
@@ -234,4 +212,6 @@ class D2QN:
                 total_reward += reward
                 i += 1
 
-            print " * Episode %08d\tTotal Reward: %d\tEpsilon: %f"%(e, total_reward, self.epsilon)
+            print " * Episode %08d\tFrame %08d\tTotal Reward: %d\tEpsilon: %f"%(e, i, total_reward, self.epsilon)
+            if not self.epsilon_schedule == None:
+                self.epsilon = self.epsilon_schedule(e, self.epsilon)

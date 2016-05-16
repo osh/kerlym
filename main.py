@@ -16,9 +16,13 @@ else:
 env = envs.make(task)
 #env.monitor.start(training_dir)
 
-agent = ddqn.D2QN(env, nframes=2, epsilon=0.25, discount=0.9, modelfactory=ddqn.embedding_rnn,
-                    epsilon_schedule=lambda episode,epsilon: epsilon*(1-1e-2) )
+agent = ddqn.D2QN(env, nframes=2, epsilon=0.25, discount=0.9, modelfactory=ddqn.simple_rnn,
+                    epsilon_schedule=lambda episode,epsilon: epsilon*(1-1e-2),
+                    update_nsamp=10000, batch_size=128, dropout=0.5 )
 agent.learn()
 #env.monitor.close()
 #gym.upload(training_dir,
-#           algorithm_id='ddqn_tjo')
+#           algorithm_id='ddqn_osh')
+
+
+
