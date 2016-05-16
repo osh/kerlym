@@ -42,6 +42,7 @@ agent = ddqn.D2QN(env, nframes=2, epsilon=0.1, discount=0.99,
                     enable_plots = True, max_memory = 1000000, 
                     epsilon_schedule=lambda episode,epsilon: epsilon*(1-1e-4)
                     )
+agent.learn()
 ```
 
 # Acknowledgements
