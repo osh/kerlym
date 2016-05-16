@@ -17,6 +17,7 @@ parser.add_option("-d", "--discount", dest="discount", default=0.99, type='float
 parser.add_option("-t", "--num_frames", dest="nframes", default=2, type='int',          help="Number of Sequential observations/timesteps to store in a single example")
 parser.add_option("-m", "--max_mem", dest="maxmem", default=100000, type='int',         help="Max number of samples to remember")
 parser.add_option("-P", "--plots", dest="plots", action="store_true", default=False,    help="Plot learning statistics while running")
+parser.add_option("-F", "--plot_rate", dest="plot_rate", default=10, type='int',        help="Plot update rate in episodes")
 (options, args) = parser.parse_args()
 
 training_dir = tempfile.mkdtemp()
@@ -32,7 +33,7 @@ import ddqn
 agent = ddqn.D2QN(env, nframes=options.nframes, epsilon=options.epsilon, discount=options.discount, modelfactory=eval("ddqn.%s"%(options.net)),
                     epsilon_schedule=lambda episode,epsilon: epsilon*(1-options.epsilon_decay),
                     update_nsamp=options.update_freq, batch_size=options.bs, dropout=options.dropout,
-                    timesteps_per_batch=options.update_size,
+                    timesteps_per_batch=options.update_size, stats_rate=options.plot_rate,
                     enable_plots = options.plots, max_memory = options.maxmem )
 agent.learn()
 #env.monitor.close()

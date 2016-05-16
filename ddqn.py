@@ -53,7 +53,7 @@ def simple_cnn(agent, env, dropout=0, **args):
 
 
 class D2QN:
-    def __init__(self, env, nframes=1, epsilon=0.1, discount=0.99, train=1, update_nsamp=1000, timesteps_per_batch=1000, dropout=0, batch_size=32, nfit_epoch=1, epsilon_schedule=None, modelfactory=simple_dnn, enable_plots=False, max_memory=100000, **args):
+    def __init__(self, env, nframes=1, epsilon=0.1, discount=0.99, train=1, update_nsamp=1000, timesteps_per_batch=1000, dropout=0, batch_size=32, nfit_epoch=1, epsilon_schedule=None, modelfactory=simple_dnn, enable_plots=False, max_memory=100000, stats_rate=10, **args):
         self.env = env
         self.nframes = nframes
         self.actions = range(env.action_space.n)
@@ -67,6 +67,7 @@ class D2QN:
         self.epsilon_schedule = epsilon_schedule
         self.enable_plots = enable_plots
         self.max_memory = max_memory
+        self.stats_rate = stats_rate
 
         # Neural Network Parameters
         self.batch_size = batch_size
@@ -199,12 +200,11 @@ class D2QN:
         numeptotal = 0
         i = 0
 
-        stats_rate = 100                       # Update plots ever N episodes
         if self.enable_plots:
             import matplotlib.pyplot as plt
             self.stats = {
-                "tr":statbin(stats_rate),     # Total Reward
-                "ft":statbin(stats_rate),     # Finishing Time
+                "tr":statbin(self.stats_rate),     # Total Reward
+                "ft":statbin(self.stats_rate),     # Finishing Time
             }
 
         for e in xrange(max_episodes):
@@ -247,7 +247,7 @@ class D2QN:
                 self.stats["tr"].add(total_reward)
                 self.stats["ft"].add(t)
 
-                if(e%stats_rate == stats_rate-1):
+                if(e%self.stats_rate == self.stats_rate-1):
                     plt.figure(1)
                     plt.clf()
                     plt.subplot(2,1,1)
