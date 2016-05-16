@@ -17,16 +17,30 @@ Exmaple: python main.py -e Go9x9-v0 -n simple_dnn -P
 
 Options:
   -h, --help            show this help message and exit
-  -e ENV, --env=ENV
-  -n NET, --net=NET
-  -f FREQ, --update_freq=FREQ
+  -e ENV, --env=ENV     Which GYM Environment to run
+  -n NET, --net=NET     Which NN Architecture to use for Q-Function
+                        approximation
+  -f UPDATE_FREQ, --update_freq=UPDATE_FREQ
+                        Frequency of NN updates specified in time steps
+  -u UPDATE_SIZE, --update_size=UPDATE_SIZE
+                        Number of samples to train on each update
   -b BS, --batch_size=BS
+                        Batch size durring NN training
   -o DROPOUT, --dropout=DROPOUT
+                        Dropout rate in Q-Fn NN
   -p EPSILON, --epsilon=EPSILON
+                        Exploration(1.0) vs Exploitation(0.0) action
+                        probability
+  -D EPSILON_DECAY, --epsilon_decay=EPSILON_DECAY
+                        Rate of epsilon decay: epsilon*=(1-decay)
   -d DISCOUNT, --discount=DISCOUNT
+                        Discount rate for future reards
   -t NFRAMES, --num_frames=NFRAMES
+                        Number of Sequential observations/timesteps to store
+                        in a single example
   -m MAXMEM, --max_mem=MAXMEM
-  -P, --plots  
+                        Max number of samples to remember
+  -P, --plots           Plot learning statistics while running
 ```
 
 or

@@ -53,7 +53,7 @@ def simple_cnn(agent, env, dropout=0, **args):
 
 
 class D2QN:
-    def __init__(self, env, nframes=1, epsilon=0.1, discount=0.99, train=1, update_nsamp=1000, dropout=0, batch_size=32, nfit_epoch=1, epsilon_schedule=None, modelfactory=simple_dnn, enable_plots=False, max_memory=100000, **args):
+    def __init__(self, env, nframes=1, epsilon=0.1, discount=0.99, train=1, update_nsamp=1000, timesteps_per_batch=1000, dropout=0, batch_size=32, nfit_epoch=1, epsilon_schedule=None, modelfactory=simple_dnn, enable_plots=False, max_memory=100000, **args):
         self.env = env
         self.nframes = nframes
         self.actions = range(env.action_space.n)
@@ -61,6 +61,7 @@ class D2QN:
         self.gamma = discount
         self.train = train
         self.update_nsamp = update_nsamp
+        self.timesteps_per_batch = timesteps_per_batch
         self.observations = []
         self.nfit_epoch = nfit_epoch
         self.epsilon_schedule = epsilon_schedule
@@ -80,8 +81,6 @@ class D2QN:
         self.reward_m1 = None
 
         self.updates = 0
-        self.n_obs_train = 5000
-
         self.model_updates = 0
 
         self.models = map(lambda x: modelfactory(self, env=env, dropout=dropout, **args), [0,1])
@@ -193,7 +192,6 @@ class D2QN:
 
     def learn(self, nhist=2):
         max_pathlength = 200
-        timesteps_per_batch = 1000
         max_episodes = 10000000000000
         max_kl = 0.01
 
@@ -234,7 +232,7 @@ class D2QN:
                 new_obs[1:,:] = obs[-1:,:]
                 new_obs[0,:] = new_observation
 
-                do_update = (i%timesteps_per_batch==timesteps_per_batch-1)
+                do_update = (i%self.timesteps_per_batch==self.timesteps_per_batch-1)
                 self.update_train( obs, action, reward, new_obs, done, do_update )
 
                 obs[:,:] = new_obs[:,:]
@@ -267,6 +265,3 @@ class D2QN:
                     plt.show(block=False)
                     plt.draw()
                     plt.pause(0.001)
-    
-
-
