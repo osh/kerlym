@@ -68,6 +68,7 @@ class D2QN:
         self.enable_plots = enable_plots
         self.max_memory = max_memory
         self.stats_rate = stats_rate
+        self.train_costs = []
 
         # Neural Network Parameters
         self.batch_size = batch_size
@@ -125,13 +126,15 @@ class D2QN:
             self.model_updates += 1
 
             X_train, y_train = self.process_minibatch(terminal)
-            self.get_model(greedy=False).fit(X_train,
+            hist = self.get_model(greedy=False).fit(X_train,
                            y_train,
                            batch_size=self.batch_size,
                            nb_epoch=self.nfit_epoch,
                            #nb_epoch=1,
                            verbose=1,
                            shuffle=True)
+
+            self.train_costs.extend(hist.history["loss"])
 
     def get_model( self, greedy=False ):
         if greedy:
@@ -205,13 +208,14 @@ class D2QN:
             self.stats = {
                 "tr":statbin(self.stats_rate),     # Total Reward
                 "ft":statbin(self.stats_rate),     # Finishing Time
+                "minvf":statbin(self.stats_rate),     # Min Value Fn
+                "maxvf":statbin(self.stats_rate),     # Min Value Fn
             }
 
         for e in xrange(max_episodes):
 
             observation = self.env.reset()
             done = False
-            total_cost = 0.0
             total_reward = 0.0
             t = 0
             maxv = []
@@ -246,22 +250,40 @@ class D2QN:
             if self.enable_plots:
                 self.stats["tr"].add(total_reward)
                 self.stats["ft"].add(t)
+                self.stats["maxvf"].add(np.mean(maxv))
+                self.stats["minvf"].add(np.mean(minv))
 
                 if(e%self.stats_rate == self.stats_rate-1):
-                    plt.figure(1)
+                    fig = plt.figure(1)
+                    fig.canvas.set_window_title("DDQN Training Stats for %s"%(self.env.__class__.__name__))
                     plt.clf()
-                    plt.subplot(2,1,1)
+                    plt.subplot(2,2,1)
                     self.stats["tr"].plot()
                     plt.title("Total Reward per Episode")
                     plt.xlabel("Episode")
                     plt.ylabel("Total Reward")
                     plt.legend(loc=2)
-                    plt.subplot(2,1,2)
+                    plt.subplot(2,2,2)
                     self.stats["ft"].plot()
                     plt.title("Finishing Time per Episode")
                     plt.xlabel("Episode")
                     plt.ylabel("Finishing Time")
                     plt.legend(loc=2)
+                    plt.subplot(2,2,3)
+                    self.stats["maxvf"].plot2(fill_col='lightblue', label='Avg Max VF')
+                    self.stats["minvf"].plot2(fill_col='slategrey', label='Avg Min VF')
+                    plt.title("Value Function Outputs")
+                    plt.xlabel("Episode")
+                    plt.ylabel("Value Fn")
+                    plt.legend(loc=2)
+                    ax = plt.subplot(2,2,4)
+                    plt.plot(self.train_costs)
+                    plt.title("Training Loss")
+                    plt.xlabel("Training Epoch")
+                    plt.ylabel("Loss")
+                    ax.set_yscale("log", nonposy='clip')
+                    plt.legend(loc=2)
+                    plt.tight_layout()
                     plt.show(block=False)
                     plt.draw()
                     plt.pause(0.001)
