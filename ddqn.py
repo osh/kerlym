@@ -239,7 +239,7 @@ class D2QN:
                 total_reward += reward
                 i += 1
 
-            print " * Episode %08d\tFrame %08d\tTotal Reward: %d\tEpsilon: %f"%(e, i, total_reward, self.epsilon)
+            print " * Episode %08d\tFrame %08d\tSamples: %08d\tReward: %d\tEpsilon: %f"%(e, i, len(self.observations), total_reward, self.epsilon)
             if not self.epsilon_schedule == None:
                 self.epsilon = self.epsilon_schedule(e, self.epsilon)
 
