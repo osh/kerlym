@@ -57,7 +57,7 @@ def default_model_factory(agent, env, dropout=0.5, **args):
 
 
 class D2QN:
-    def __init__(self, env, nframes=1, epsilon=0.1, discount=0.99, train=1, update_nsamp=1000, dropout=0, batch_size=32, nfit_epoch=10, epsilon_schedule=None, modelfactory=default_model_factory, **args):
+    def __init__(self, env, nframes=1, epsilon=0.1, discount=0.99, train=1, update_nsamp=1000, dropout=0, batch_size=32, nfit_epoch=1, epsilon_schedule=None, modelfactory=default_model_factory, **args):
         self.env = env
         self.nframes = nframes
         self.actions = range(env.action_space.n)
