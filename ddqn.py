@@ -111,9 +111,9 @@ class D2QN:
         return action, qval
 
     def update_train(self, p_state, action, p_reward, new_state, terminal, update_model=False):
-
+        assert self.max_memory >= self.timesteps_per_batch
         if(len(self.observations) >= self.max_memory):
-            delidx = np.random.randint(0,len(self.observations)-1)
+            delidx = np.random.randint(0,len(self.observations)-1-self.timesteps_per_batch)
             del self.observations[delidx]
 
         self.observations.append((p_state, action, p_reward, new_state, terminal))
@@ -150,8 +150,12 @@ class D2QN:
         if self.update_nsamp == None:
             samples = self.observations
         else:
-            nsamp = min(len(self.observations), self.update_nsamp)
-            samples = sample(self.observations, nsamp)
+            nsamp_new = self.timesteps_per_batch                    # new samples to learn from
+            nsamp = min(len(self.observations), self.update_nsamp)  # total number of samples we will train on
+            nsamp_replay = (nsamp-self.timesteps_per_batch)         # number of replay samples
+
+            # concat our new and random replay samples
+            samples = self.observations[-nsamp_new:] + sample(self.observations[0:-nsamp_new], nsamp_replay)
 
         for memory in samples:
             if val == 0:

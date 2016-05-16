@@ -18,16 +18,16 @@ parser.add_option("-t", "--num_frames", dest="nframes", default=2, type='int',  
 parser.add_option("-m", "--max_mem", dest="maxmem", default=100000, type='int',         help="Max number of samples to remember")
 parser.add_option("-P", "--plots", dest="plots", action="store_true", default=False,    help="Plot learning statistics while running")
 parser.add_option("-F", "--plot_rate", dest="plot_rate", default=10, type='int',        help="Plot update rate in episodes")
+parser.add_option("-S", "--submit", dest="submit", action="store_true", default=False,  help="Submit Results to OpenAI")
 (options, args) = parser.parse_args()
 
 training_dir = tempfile.mkdtemp()
 logging.getLogger().setLevel(logging.DEBUG)
 
-print options.plots
-
 from gym import envs
 env = envs.make(options.env)
-#env.monitor.start(training_dir)
+if options.submit:
+    env.monitor.start(training_dir)
 
 import ddqn
 agent = ddqn.D2QN(env, nframes=options.nframes, epsilon=options.epsilon, discount=options.discount, modelfactory=eval("ddqn.%s"%(options.net)),
@@ -36,6 +36,7 @@ agent = ddqn.D2QN(env, nframes=options.nframes, epsilon=options.epsilon, discoun
                     timesteps_per_batch=options.update_size, stats_rate=options.plot_rate,
                     enable_plots = options.plots, max_memory = options.maxmem )
 agent.learn()
-#env.monitor.close()
-#gym.upload(training_dir,
-#           algorithm_id='ddqn_osh')
+if options.submit:
+    env.monitor.close()
+    gym.upload(training_dir,
+           algorithm_id='ddqn_osh')
