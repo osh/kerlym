@@ -38,6 +38,19 @@ def simple_rnn(agent, env, dropout=0, h0_width=8, h1_width=8, **args):
     model.compile(loss='mse', optimizer=Adam(lr=0.001) )
     return model
 
+def simple_cnn(agent, env, dropout=0, **args):
+    S = Input(shape=[agent.input_dim])
+    h = Reshape( agent.input_dim_orig )(S)
+    h = TimeDistributed( Convolution2D(16, 8, 8, subsample=(4, 4), border_mode='same', activation='relu'))(h)
+    h = TimeDistributed( Convolution2D(32, 4, 4, subsample=(2, 2), border_mode='same', activation='relu'))(h)
+    h = Flatten()(h)
+    h = Dense(256, activation='relu')(h)
+    V = Dense(env.action_space.n, activation='linear')(h)
+    model = Model(S, V)
+    model.compile(loss='mse', optimizer=Adam(lr=0.001) )
+    return model
+
+
 class D2QN:
     def __init__(self, env, nframes=1, epsilon=0.1, discount=0.99, train=1, update_nsamp=1000, dropout=0, batch_size=32, nfit_epoch=1, epsilon_schedule=None, modelfactory=simple_dnn, **args):
         self.env = env

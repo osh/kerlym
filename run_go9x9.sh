@@ -1,1 +1,1 @@
-python main.py Go9x9-v0
+python main.py -e Go9x9-v0 -n simple_dnn
