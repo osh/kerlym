@@ -13,6 +13,7 @@ or
 
 ```
 Usage: main.py [options]
+Exmaple: python main.py -e Go9x9-v0 -n simple_dnn -P
 
 Options:
   -h, --help            show this help message and exit
