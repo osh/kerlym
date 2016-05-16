@@ -5,7 +5,9 @@ It is intended to be easy to make experiemnting with network configuration, diff
 
 # Usage
 
+```
 ./run_pong.sh
+```
 
 or
 
@@ -24,6 +26,22 @@ Options:
   -t NFRAMES, --num_frames=NFRAMES
   -m MAXMEM, --max_mem=MAXMEM
   -P, --plots  
+```
+
+or
+
+```python
+from gym import envs
+env = envs.make(options.env)
+#env.monitor.start(training_dir)
+
+import ddqn
+agent = ddqn.D2QN(env, nframes=2, epsilon=0.1, discount=0.99, 
+                    modelfactory=ddqn.simple_cnn,
+                    update_nsamp=1000, batch_size=32, dropout=0.5, 
+                    enable_plots = True, max_memory = 1000000, 
+                    epsilon_schedule=lambda episode,epsilon: epsilon*(1-1e-4)
+                    )
 ```
 
 # Acknowledgements
