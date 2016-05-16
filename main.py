@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import os
+import os,random
 #os.environ["THEANO_FLAGS"] = "mode=FAST_RUN,device=gpu%d,floatX=float32"%(random.randint(0,3))
 import tempfile,logging,sys
 

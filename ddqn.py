@@ -198,10 +198,7 @@ class D2QN:
         return X_train, y_train
 
 
-    def learn(self, nhist=2):
-        max_pathlength = 200
-        max_episodes = 10000000000000
-        max_kl = 0.01
+    def learn(self, ipy_clear=False, max_episodes=100000000, max_pathlength=200):
 
         start_time = time.time()
         numeptotal = 0
@@ -258,6 +255,9 @@ class D2QN:
                 self.stats["minvf"].add(np.mean(minv))
 
                 if(e%self.stats_rate == self.stats_rate-1):
+                    if ipy_clear:
+                        from IPython import display
+                        display.clear_output(wait=True)
                     fig = plt.figure(1)
                     fig.canvas.set_window_title("DDQN Training Stats for %s"%(self.env.__class__.__name__))
                     plt.clf()
