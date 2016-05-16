@@ -112,7 +112,7 @@ class D2QN:
     def update_train(self, p_state, action, p_reward, new_state, terminal, update_model=False):
 
         if(len(self.observations) >= self.max_memory):
-            delidx = random.randint(0,len(self.observations)-1)
+            delidx = np.random.randint(0,len(self.observations)-1)
             del self.observations[delidx]
 
         self.observations.append((p_state, action, p_reward, new_state, terminal))
