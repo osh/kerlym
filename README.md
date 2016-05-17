@@ -63,8 +63,7 @@ or
 
 ```python
 from gym import envs
-env = envs.make(options.env)
-#env.monitor.start(training_dir)
+env = envs.make("SpaceInvaders-v0")
 
 import ddqn
 agent = ddqn.D2QN(env, nframes=2, epsilon=0.1, discount=0.99, 
