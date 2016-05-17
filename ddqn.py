@@ -53,7 +53,8 @@ def simple_cnn(agent, env, dropout=0, **args):
 
 
 class D2QN:
-    def __init__(self, env, nframes=1, epsilon=0.1, discount=0.99, train=1, update_nsamp=1000, timesteps_per_batch=1000, dropout=0, batch_size=32, nfit_epoch=1, epsilon_schedule=None, modelfactory=simple_dnn, enable_plots=False, max_memory=100000, stats_rate=10, **args):
+    def __init__(self, env, nframes=1, epsilon=0.1, discount=0.99, train=1, update_nsamp=1000, timesteps_per_batch=1000, dropout=0, batch_size=32, nfit_epoch=1, epsilon_schedule=None, modelfactory=simple_dnn, enable_plots=False, max_memory=100000, stats_rate=10, fit_verbose=0, **args):
+        self.fit_verbose = 0
         self.env = env
         self.nframes = nframes
         self.actions = range(env.action_space.n)
@@ -69,6 +70,7 @@ class D2QN:
         self.max_memory = max_memory
         self.stats_rate = stats_rate
         self.train_costs = []
+        self.nterminal = 0
 
         # Neural Network Parameters
         self.batch_size = batch_size
@@ -91,14 +93,14 @@ class D2QN:
 
     def act( self, state=None, pstate=None, paction=None, preward=None):
         state = np.asarray(state).reshape(1, self.input_dim)
+        qval = self.get_model(greedy=True).predict(state, batch_size=1)
 
         if self.train:
-            qval = self.get_model(greedy=True).predict(state, batch_size=1)
-
-            if random() < self.epsilon  or pstate is None:
+            if random() < self.epsilon:
+            #if random() < self.epsilon  or pstate is None:
                 action = np.random.randint(0, len(self.actions))
             else:
-                action = (np.argmax(qval))
+                action = np.argmax(qval)
 
         else:
             qval = self.get_model(greedy=True).predict(state, batch_size=1)
@@ -106,7 +108,7 @@ class D2QN:
                 action = np.random.randint(0, len(self.actions))
                 self.updates += 1
             else:
-                action = (np.argmax(qval))
+                action = np.argmax(qval)
 
         return action, qval
 
@@ -116,6 +118,7 @@ class D2QN:
             delidx = np.random.randint(0,len(self.observations)-1-self.timesteps_per_batch)
             del self.observations[delidx]
 
+        self.nterminal += 1
         self.observations.append((p_state, action, p_reward, new_state, terminal))
         self.updates += 1
 
@@ -131,7 +134,7 @@ class D2QN:
                            batch_size=self.batch_size,
                            nb_epoch=self.nfit_epoch,
                            #nb_epoch=1,
-                           verbose=1,
+                           verbose=self.fit_verbose,
                            shuffle=True)
 
             self.train_costs.extend(hist.history["loss"])
@@ -176,6 +179,8 @@ class D2QN:
                 newQ = self.get_model(greedy=True).predict(new_state_m,
                                           batch_size=1,
                                           verbose=0)
+
+                #print newQ
                 maxQ = np.max(newQ)
                 y = np.zeros((1, len(self.actions)))
                 y[:] = old_qval[:]
@@ -244,7 +249,7 @@ class D2QN:
                 total_reward += reward
                 i += 1
 
-            print " * Episode %08d\tFrame %08d\tSamples: %08d\tReward: %d\tEpsilon: %f"%(e, i, len(self.observations), total_reward, self.epsilon)
+            print " * Episode %08d\tFrame %08d\tSamples: %08d\tTerminal: %08d\tReward: %d\tEpsilon: %f"%(e, i, len(self.observations), self.nterminal, total_reward, self.epsilon)
             if not self.epsilon_schedule == None:
                 self.epsilon = self.epsilon_schedule(e, self.epsilon)
 
