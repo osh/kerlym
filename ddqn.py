@@ -118,7 +118,8 @@ class D2QN:
             delidx = np.random.randint(0,len(self.observations)-1-self.timesteps_per_batch)
             del self.observations[delidx]
 
-        self.nterminal += 1
+        
+        self.nterminal += 1 if terminal else 0
         self.observations.append((p_state, action, p_reward, new_state, terminal))
         self.updates += 1
 
