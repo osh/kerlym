@@ -33,8 +33,8 @@ if options.submit:
 import ddqn
 agent = ddqn.D2QN(env, nframes=options.nframes, epsilon=options.epsilon, discount=options.discount, modelfactory=eval("ddqn.%s"%(options.net)),
                     epsilon_schedule=lambda episode,epsilon: max(0.05, epsilon*(1-options.epsilon_decay)),
-                    update_nsamp=options.update_freq, batch_size=options.bs, dropout=options.dropout,
-                    timesteps_per_batch=options.update_size, stats_rate=options.plot_rate,
+                    update_nsamp=options.update_size, batch_size=options.bs, dropout=options.dropout,
+                    timesteps_per_batch=options.update_freq, stats_rate=options.plot_rate,
                     enable_plots = options.plots, max_memory = options.maxmem )
 agent.learn()
 if options.submit:
