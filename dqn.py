@@ -22,7 +22,7 @@ def simple_dnn(agent, env, dropout=0.5, **args):
     h = Dropout(dropout)(h)
     V = Dense(env.action_space.n, activation='linear',init='zero')(h)
     model = Model(S,V)
-    model.compile(loss='mse', optimizer=RMSprop(lr=0.001) )
+    model.compile(loss='mse', optimizer=RMSprop(lr=0.01) )
     return model
 
 def simple_rnn(agent, env, dropout=0, h0_width=8, h1_width=8, **args):
@@ -36,7 +36,7 @@ def simple_rnn(agent, env, dropout=0, h0_width=8, h1_width=8, **args):
     h = Dropout(dropout)(h)
     V = Dense(env.action_space.n, activation='linear',init='zero')(h)
     model = Model(S,V)
-    model.compile(loss='mse', optimizer=RMSprop(lr=0.001) )
+    model.compile(loss='mse', optimizer=RMSprop(lr=0.01) )
     return model
 
 def simple_cnn(agent, env, dropout=0, **args):
@@ -48,7 +48,7 @@ def simple_cnn(agent, env, dropout=0, **args):
     h = Dense(256, activation='relu')(h)
     V = Dense(env.action_space.n, activation='linear',init='zero')(h)
     model = Model(S, V)
-    model.compile(loss='mse', optimizer=RMSprop(lr=0.001) )
+    model.compile(loss='mse', optimizer=RMSprop(lr=0.01) )
     return model
 
 
@@ -246,6 +246,8 @@ class D2QN:
                 new_observation, reward, done, info = self.env.step(action)
                 new_obs[1:,:] = obs[-1:,:]
                 new_obs[0,:] = new_observation
+                if not done and t == max_pathlength-1:
+                    done = True
 
                 do_update = (i%self.timesteps_per_batch==self.timesteps_per_batch-1)
                 self.update_train( obs, action, reward, new_obs, done, do_update )
