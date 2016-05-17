@@ -52,8 +52,10 @@ def simple_cnn(agent, env, dropout=0, **args):
     return model
 
 
+
 class D2QN:
     def __init__(self, env, nframes=1, epsilon=0.1, discount=0.99, train=1, update_nsamp=1000, timesteps_per_batch=1000, dropout=0, batch_size=32, nfit_epoch=1, epsilon_schedule=None, modelfactory=simple_dnn, enable_plots=False, max_memory=100000, stats_rate=10, fit_verbose=0, **args):
+        self.double = True
         self.fit_verbose = 0
         self.env = env
         self.nframes = nframes
@@ -118,7 +120,7 @@ class D2QN:
             delidx = np.random.randint(0,len(self.observations)-1-self.timesteps_per_batch)
             del self.observations[delidx]
 
-        
+
         self.nterminal += 1 if terminal else 0
         self.observations.append((p_state, action, p_reward, new_state, terminal))
         self.updates += 1
@@ -141,7 +143,7 @@ class D2QN:
             self.train_costs.extend(hist.history["loss"])
 
     def get_model( self, greedy=False ):
-        if greedy:
+        if greedy or not self.double:
             return self.models[(self.model_updates+1)%2]
         else:
             return self.models[self.model_updates%2]
@@ -297,3 +299,8 @@ class D2QN:
                     plt.show(block=False)
                     plt.draw()
                     plt.pause(0.001)
+
+class DQN(D2QN):
+    def __init__(self, *args, **kwargs):
+        D2QN.__init__(self, *args, **kwargs)
+        self.double = False

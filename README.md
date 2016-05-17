@@ -7,6 +7,7 @@ It is intended to make it easy to run, measure, and experiment with different le
 # Agents
 
  - ddqn, double q-learning agent with various Keras NN's for Q approximation
+ - dqn, q-learning agent with various Keras NN's for Q approximation
 
 # Usage
 
@@ -17,35 +18,43 @@ It is intended to make it easy to run, measure, and experiment with different le
 or
 
 ```
-Usage: kerlym.py [options]
 Exmaple: python kerlym.py -e Go9x9-v0 -n simple_dnn -P
+
+Usage: kerlym.py [options]
 
 Options:
   -h, --help            show this help message and exit
-  -e ENV, --env=ENV     Which GYM Environment to run
+  -e ENV, --env=ENV     Which GYM Environment to run [MountainCar-v0]
   -n NET, --net=NET     Which NN Architecture to use for Q-Function
-                        approximation
+                        approximation [simple_dnn]
   -f UPDATE_FREQ, --update_freq=UPDATE_FREQ
-                        Frequency of NN updates specified in time steps
+                        Frequency of NN updates specified in time steps [1000]
   -u UPDATE_SIZE, --update_size=UPDATE_SIZE
-                        Number of samples to train on each update
+                        Number of samples to train on each update [1100]
   -b BS, --batch_size=BS
-                        Batch size durring NN training
+                        Batch size durring NN training [32]
   -o DROPOUT, --dropout=DROPOUT
-                        Dropout rate in Q-Fn NN
+                        Dropout rate in Q-Fn NN [0.5]
   -p EPSILON, --epsilon=EPSILON
                         Exploration(1.0) vs Exploitation(0.0) action
-                        probability
+                        probability [0.1]
   -D EPSILON_DECAY, --epsilon_decay=EPSILON_DECAY
-                        Rate of epsilon decay: epsilon*=(1-decay)
+                        Rate of epsilon decay: epsilon*=(1-decay) [0.0001]
+  -s EPSILON_MIN, --epsilon_min=EPSILON_MIN
+                        Min epsilon value after decay [0.05]
   -d DISCOUNT, --discount=DISCOUNT
-                        Discount rate for future reards
+                        Discount rate for future reards [0.99]
   -t NFRAMES, --num_frames=NFRAMES
                         Number of Sequential observations/timesteps to store
-                        in a single example
+                        in a single example [2]
   -m MAXMEM, --max_mem=MAXMEM
-                        Max number of samples to remember
-  -P, --plots           Plot learning statistics while running
+                        Max number of samples to remember [100000]
+  -P, --plots           Plot learning statistics while running [False]
+  -F PLOT_RATE, --plot_rate=PLOT_RATE
+                        Plot update rate in episodes [10]
+  -S, --submit          Submit Results to OpenAI [False]
+  -a AGENT, --agent=AGENT
+                        Which learning algorithm to use [ddqn]
 ```
 
 or
