@@ -20,7 +20,7 @@ def simple_dnn(agent, env, dropout=0.5, **args):
     h = Dropout(dropout)(h)
     h = Dense(256, activation='relu', init='he_normal')(h)
     h = Dropout(dropout)(h)
-    V = Dense(env.action_space.n, activation='linear')(h)
+    V = Dense(env.action_space.n, activation='linear',init='zero')(h)
     model = Model(S,V)
     model.compile(loss='mse', optimizer=Adam(lr=0.001) )
     return model
@@ -34,7 +34,7 @@ def simple_rnn(agent, env, dropout=0, h0_width=8, h1_width=8, **args):
     h = Dropout(dropout)(h)
     h = LSTM(h1_width)(h)
     h = Dropout(dropout)(h)
-    V = Dense(env.action_space.n, activation='linear')(h)
+    V = Dense(env.action_space.n, activation='linear',init='zero')(h)
     model = Model(S,V)
     model.compile(loss='mse', optimizer=Adam(lr=0.001) )
     return model
@@ -46,7 +46,7 @@ def simple_cnn(agent, env, dropout=0, **args):
     h = TimeDistributed( Convolution2D(32, 4, 4, subsample=(2, 2), border_mode='same', activation='relu'))(h)
     h = Flatten()(h)
     h = Dense(256, activation='relu')(h)
-    V = Dense(env.action_space.n, activation='linear')(h)
+    V = Dense(env.action_space.n, activation='linear',init='zero')(h)
     model = Model(S, V)
     model.compile(loss='mse', optimizer=Adam(lr=0.001) )
     return model
@@ -156,7 +156,7 @@ class D2QN:
         else:
             nsamp_new = self.timesteps_per_batch                    # new samples to learn from
             nsamp = min(len(self.observations), self.update_nsamp)  # total number of samples we will train on
-            nsamp_replay = (nsamp-self.timesteps_per_batch)         # number of replay samples
+            nsamp_replay = max(0,nsamp-self.timesteps_per_batch)         # number of replay samples
 
             # concat our new and random replay samples
             samples = self.observations[-nsamp_new:] + sample(self.observations[0:-nsamp_new], nsamp_replay)

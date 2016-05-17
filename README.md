@@ -1,7 +1,12 @@
-# D2QN // Double Q-Learning Agent with Keras DeepNN Q-Function Approxmation
+# KEras Reinforcement Learning gYM agents, KeRLym
 
-This repo implements a Deep Double Q-Learning Agent for OpenAI's Gym using Keras NN Primitives on top of Theano/TensorFlow
-It is intended to be easy to make experiemnting with network configuration, different tasks, and RL tuning and testing over relatively large runs easy and straightforward.
+This repo is intended to host a handful of reinforcement learning agents implemented using the Keras (http://keras.io/) deep learning library for Theano and Tensorflow.
+It is intended to make it easy to run, measure, and experiment with different learning configuration and underlying value function approximation networks while running a variery of OpenAI Gym environments (https://gym.openai.com/).
+
+
+# Agents
+
+ - ddqn, double q-learning agent with various Keras NN's for Q approximation
 
 # Usage
 
@@ -12,8 +17,8 @@ It is intended to be easy to make experiemnting with network configuration, diff
 or
 
 ```
-Usage: main.py [options]
-Exmaple: python main.py -e Go9x9-v0 -n simple_dnn -P
+Usage: kerlym.py [options]
+Exmaple: python kerlym.py -e Go9x9-v0 -n simple_dnn -P
 
 Options:
   -h, --help            show this help message and exit
@@ -65,7 +70,7 @@ agent.learn()
 Much thanks to all of the following projects for their inspiration and contributions
  - https://github.com/dandxy89/rf_helicopter
  - https://github.com/sherjilozair/dqn
- - OpenAI Gym & Keras
+ - Keras and Gym
 
 Cheers
 Tim
