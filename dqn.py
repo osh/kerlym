@@ -90,6 +90,8 @@ class D2QN:
         self.model_updates = 0
 
         self.models = map(lambda x: modelfactory(self, env=env, dropout=dropout, **args), [0,1])
+        self.stats = None
+
         print self.models[0].summary()
 
 
@@ -212,7 +214,7 @@ class D2QN:
         numeptotal = 0
         i = 0
 
-        if self.enable_plots:
+        if self.enable_plots and self.stats is None:
             import matplotlib.pyplot as plt
             self.stats = {
                 "tr":statbin(self.stats_rate),     # Total Reward
@@ -293,9 +295,11 @@ class D2QN:
                     plt.title("Training Loss")
                     plt.xlabel("Training Epoch")
                     plt.ylabel("Loss")
-                    ax.set_yscale("log", nonposy='clip')
-                    plt.legend(loc=2)
-                    plt.tight_layout()
+                    try:
+                        ax.set_yscale("log", nonposy='clip')
+                        plt.tight_layout()
+                    except:
+                        pass
                     plt.show(block=False)
                     plt.draw()
                     plt.pause(0.001)
