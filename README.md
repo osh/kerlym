@@ -75,6 +75,27 @@ agent = ddqn.D2QN(env, nframes=2, epsilon=0.1, discount=0.99,
 agent.learn()
 ```
 
+# Custom Action-Value Function Approximation Network
+
+```
+def custom_Q_nn(agent, env, dropout=0, h0_width=8, h1_width=8, **args):
+    S = Input(shape=[agent.input_dim])
+    h = Reshape([agent.nframes, agent.input_dim/agent.nframes])(S)
+    h = TimeDistributed(Dense(h0_width, activation='relu', init='he_normal'))(h)
+    h = Dropout(dropout)(h)
+    h = LSTM(h1_width, return_sequences=True)(h)
+    h = Dropout(dropout)(h)
+    h = LSTM(h1_width)(h)
+    h = Dropout(dropout)(h)
+    V = Dense(env.action_space.n, activation='linear',init='zero')(h)
+    model = Model(S,V)
+    model.compile(loss='mse', optimizer=RMSprop(lr=0.01) )
+    return model
+
+agent = ddqn.D2QN(env, modelfactory=custom_Q_nn)
+
+```
+
 # Acknowledgements
 
 Much thanks to all of the following projects for their inspiration and contributions
@@ -82,5 +103,4 @@ Much thanks to all of the following projects for their inspiration and contribut
  - https://github.com/sherjilozair/dqn
  - Keras and Gym
 
-Cheers
-Tim
+-Tim
