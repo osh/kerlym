@@ -75,7 +75,7 @@ agent = ddqn.D2QN(env, nframes=2, epsilon=0.1, discount=0.99,
 agent.learn()
 ```
 
-# Custom Action-Value Function Approximation Network
+# Custom Action-Value Function Network
 
 ```
 def custom_Q_nn(agent, env, dropout=0, h0_width=8, h1_width=8, **args):
