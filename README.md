@@ -96,6 +96,20 @@ agent = ddqn.D2QN(env, modelfactory=custom_Q_nn)
 
 ```
 
+# Citation
+
+If using this work in your research, citation of our publication introducing this platform would be greatly appreciated!
+The arXiv paper is available at https://arxiv.org/abs/1605.09221 and a simple bibtex entry is provided below.
+
+```
+@misc{1605.09221,
+Author = {Timothy J. O'Shea and T. Charles Clancy},
+Title = {Deep Reinforcement Learning Radio Control and Signal Detection with KeRLym, a Gym RL Agent},
+Year = {2016},
+Eprint = {arXiv:1605.09221},
+}
+```
+
 # Acknowledgements
 
 Much thanks to all of the following projects for their inspiration and contributions
