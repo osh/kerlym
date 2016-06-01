@@ -54,7 +54,7 @@ def simple_cnn(agent, env, dropout=0, **args):
 
 
 class D2QN:
-    def __init__(self, env, nframes=1, epsilon=0.1, discount=0.99, train=1, update_nsamp=1000, timesteps_per_batch=1000, dropout=0, batch_size=32, nfit_epoch=1, epsilon_schedule=None, modelfactory=simple_dnn, enable_plots=False, max_memory=100000, stats_rate=10, fit_verbose=0, **args):
+    def __init__(self, env, nframes=1, epsilon=0.1, discount=0.99, train=1, update_nsamp=1000, timesteps_per_batch=1000, dropout=0, batch_size=32, nfit_epoch=1, epsilon_schedule=None, modelfactory=simple_dnn, enable_plots=False, max_memory=100000, stats_rate=10, fit_verbose=0, difference_obs=False, **args):
         self.double = True
         self.fit_verbose = 0
         self.env = env
@@ -73,6 +73,7 @@ class D2QN:
         self.stats_rate = stats_rate
         self.train_costs = []
         self.nterminal = 0
+        self.difference_obs = difference_obs
 
         # Neural Network Parameters
         self.batch_size = batch_size
@@ -244,8 +245,16 @@ class D2QN:
                 minv.append(min(values.flatten()))
 
                 new_observation, reward, done, info = self.env.step(action)
+                if self.difference_obs:
+                    # compute difference image
+                    o = (new_observation-observation)
+                    observation = new_observation
+                else:
+                    # use observation directly
+                    o = new_observation
+
                 new_obs[1:,:] = obs[-1:,:]
-                new_obs[0,:] = new_observation
+                new_obs[0,:] = o
                 if not done and t == max_pathlength-1:
                     done = True
 

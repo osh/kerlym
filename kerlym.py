@@ -21,6 +21,7 @@ parser.add_option("-P", "--plots", dest="plots", action="store_true", default=Fa
 parser.add_option("-F", "--plot_rate", dest="plot_rate", default=10, type='int',        help="Plot update rate in episodes [%default]")
 parser.add_option("-S", "--submit", dest="submit", action="store_true", default=False,  help="Submit Results to OpenAI [%default]")
 parser.add_option("-a", "--agent", dest="agent", default="ddqn",                        help="Which learning algorithm to use [%default]")
+parser.add_option("-i", "--difference", dest="difference_obs", action="store_true", default=False,  help="Compute Difference Image for Training [%default]")
 (options, args) = parser.parse_args()
 
 print options.agent
@@ -43,7 +44,8 @@ agent = agent_constructor(env, nframes=options.nframes, epsilon=options.epsilon,
                     epsilon_schedule=lambda episode,epsilon: max(0.05, epsilon*(1-options.epsilon_decay)),
                     update_nsamp=options.update_size, batch_size=options.bs, dropout=options.dropout,
                     timesteps_per_batch=options.update_freq, stats_rate=options.plot_rate,
-                    enable_plots = options.plots, max_memory = options.maxmem )
+                    enable_plots = options.plots, max_memory = options.maxmem,
+                    difference_obs = options.difference_obs )
 agent.learn()
 if options.submit:
     env.monitor.close()
