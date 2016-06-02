@@ -1,4 +1,4 @@
-
+import numpy as np
 
 # Preprocessors
 def karpathy_preproc(I):

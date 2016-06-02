@@ -3,7 +3,7 @@ import os,random
 #os.environ["THEANO_FLAGS"] = "mode=FAST_RUN,device=gpu%d,floatX=float32"%(random.randint(0,3))
 import tempfile,logging,sys
 
-from kerlym import networks
+from kerlym import networks,agents,preproc
 
 from optparse import OptionParser
 parser = OptionParser()
@@ -37,10 +37,9 @@ env = envs.make(options.env)
 if options.submit:
     env.monitor.start(training_dir)
 
-import dqn
 agent_constructor = {
-    "dqn":dqn.DQN,
-    "ddqn":dqn.D2QN
+    "dqn":agents.DQN,
+    "ddqn":agents.D2QN
 }[options.agent]
 
 agent = agent_constructor(env, nframes=options.nframes, epsilon=options.epsilon, discount=options.discount, modelfactory=eval("networks.%s"%(options.net)),
@@ -48,7 +47,7 @@ agent = agent_constructor(env, nframes=options.nframes, epsilon=options.epsilon,
                     update_nsamp=options.update_size, batch_size=options.bs, dropout=options.dropout,
                     timesteps_per_batch=options.update_freq, stats_rate=options.plot_rate,
                     enable_plots = options.plots, max_memory = options.maxmem,
-                    difference_obs = options.difference_obs )
+                    difference_obs = options.difference_obs, learning_rate=options.learning_rate )
 agent.learn()
 if options.submit:
     env.monitor.close()
