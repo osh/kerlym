@@ -3,6 +3,8 @@ import os,random
 #os.environ["THEANO_FLAGS"] = "mode=FAST_RUN,device=gpu%d,floatX=float32"%(random.randint(0,3))
 import tempfile,logging,sys
 
+from kerlym import networks
+
 from optparse import OptionParser
 parser = OptionParser()
 parser.add_option("-e", "--env", dest="env", default="MountainCar-v0",                  help="Which GYM Environment to run [%default]")
@@ -41,7 +43,7 @@ agent_constructor = {
     "ddqn":dqn.D2QN
 }[options.agent]
 
-agent = agent_constructor(env, nframes=options.nframes, epsilon=options.epsilon, discount=options.discount, modelfactory=eval("dqn.%s"%(options.net)),
+agent = agent_constructor(env, nframes=options.nframes, epsilon=options.epsilon, discount=options.discount, modelfactory=eval("networks.%s"%(options.net)),
                     epsilon_schedule=lambda episode,epsilon: max(0.05, epsilon*(1-options.epsilon_decay)),
                     update_nsamp=options.update_size, batch_size=options.bs, dropout=options.dropout,
                     timesteps_per_batch=options.update_freq, stats_rate=options.plot_rate,

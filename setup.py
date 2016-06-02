@@ -15,4 +15,5 @@ setup(
     url = "http://www.kerlym.com",
     packages=['kerlym'],
     long_description=read('README.md'),
+    scripts=['kerlym/kerlym'],
 )
