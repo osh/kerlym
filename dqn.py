@@ -52,9 +52,20 @@ def simple_cnn(agent, env, dropout=0, **args):
     return model
 
 
+# Preprocessors
+def karpathy_preproc(I):
+  """ prepro 210x160x3 uint8 frame into 6400 (80x80) 1D float vector """
+  I = I[35:195] # crop
+  I = I[::2,::2,0] # downsample by factor of 2
+  I[I == 144] = 0 # erase background (background type 1)
+  I[I == 109] = 0 # erase background (background type 2)
+  I[I != 0] = 1 # everything else (paddles, ball) just set to 1
+  return I.astype(np.float).ravel().reshape( [1,80,80] )
+
+
 
 class D2QN:
-    def __init__(self, env, nframes=1, epsilon=0.1, discount=0.99, train=1, update_nsamp=1000, timesteps_per_batch=1000, dropout=0, batch_size=32, nfit_epoch=1, epsilon_schedule=None, modelfactory=simple_dnn, enable_plots=False, max_memory=100000, stats_rate=10, fit_verbose=0, difference_obs=False, **args):
+    def __init__(self, env, nframes=1, epsilon=0.1, discount=0.99, train=1, update_nsamp=1000, timesteps_per_batch=1000, dropout=0, batch_size=32, nfit_epoch=1, epsilon_schedule=None, modelfactory=simple_dnn, enable_plots=False, max_memory=100000, stats_rate=10, fit_verbose=0, difference_obs=False, preprocessor=None, **args):
         self.double = True
         self.fit_verbose = 0
         self.env = env
@@ -74,12 +85,19 @@ class D2QN:
         self.train_costs = []
         self.nterminal = 0
         self.difference_obs = difference_obs
-
-        # Neural Network Parameters
+        self.preprocessor = preprocessor
         self.batch_size = batch_size
         self.dropout = dropout
-        self.input_dim_orig = [nframes]+list(env.observation_space.shape)
+        
+        # set up output shape to be either pre-processed or not
+        if not preprocessor == None:
+            o = preprocessor(np.zeros( env.observation_space.shape ) )
+            pp_o = o.shape
+            self.input_dim_orig = [nframes] + list(pp_o)
+        else:
+            self.input_dim_orig = [nframes]+list(env.observation_space.shape)
         self.input_dim = np.product( self.input_dim_orig )
+
         print "Input Dim: ", self.input_dim, self.input_dim_orig
         print "Output Actions: ", self.actions
 
@@ -227,14 +245,17 @@ class D2QN:
         for e in xrange(max_episodes):
 
             observation = self.env.reset()
+            if not self.preprocessor == None:
+                observation = self.preprocessor(observation)
+
             done = False
             total_reward = 0.0
             t = 0
             maxv = []
             minv = []
 
-            obs = np.zeros( [self.nframes]+list(self.env.observation_space.shape) )
-            new_obs = np.zeros( [self.nframes]+list(self.env.observation_space.shape) )
+            obs = np.zeros( self.input_dim_orig )
+            new_obs = np.zeros( self.input_dim_orig )
             obs[0,:] = observation
 
             while (not done) and (t<max_pathlength):
@@ -245,6 +266,12 @@ class D2QN:
                 minv.append(min(values.flatten()))
 
                 new_observation, reward, done, info = self.env.step(action)
+                
+                # compute preprocessed observation if enabled ...
+                if not self.preprocessor == None:
+                    new_observation = self.preprocessor(new_observation)
+
+                # compute difference observation if enabled ...
                 if self.difference_obs:
                     # compute difference image
                     o = (new_observation-observation)
