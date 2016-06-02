@@ -118,3 +118,6 @@ Much thanks to all of the following projects for their inspiration and contribut
  - Keras and Gym
 
 -Tim
+
+# Remind
+Install `pip install gym` and `pip install gym[atari]`. If gym[atari] has install error, `apt-get install cmake`.
