@@ -22,6 +22,7 @@ parser.add_option("-F", "--plot_rate", dest="plot_rate", default=10, type='int',
 parser.add_option("-S", "--submit", dest="submit", action="store_true", default=False,  help="Submit Results to OpenAI [%default]")
 parser.add_option("-a", "--agent", dest="agent", default="ddqn",                        help="Which learning algorithm to use [%default]")
 parser.add_option("-i", "--difference", dest="difference_obs", action="store_true", default=False,  help="Compute Difference Image for Training [%default]")
+parser.add_option("-r", "--learning_rate", dest="learning_rate", type='float', default=1e-4,  help="RMSprop Learning Rate [%default]")
 (options, args) = parser.parse_args()
 
 print options.agent
