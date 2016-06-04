@@ -39,15 +39,27 @@ if options.submit:
 
 agent_constructor = {
     "dqn":agents.DQN,
-    "ddqn":agents.D2QN
+    "ddqn":agents.D2QN,
+    "pg":agents.PG
 }[options.agent]
 
-agent = agent_constructor(env, nframes=options.nframes, epsilon=options.epsilon, discount=options.discount, modelfactory=eval("networks.%s"%(options.net)),
+agent = agent_constructor(
+                    env=env,
+                    nframes=options.nframes,
+                    epsilon=options.epsilon,
+                    discount=options.discount,
+                    modelfactory=eval("networks.%s"%(options.net)),
                     epsilon_schedule=lambda episode,epsilon: max(0.05, epsilon*(1-options.epsilon_decay)),
-                    update_nsamp=options.update_size, batch_size=options.bs, dropout=options.dropout,
-                    timesteps_per_batch=options.update_freq, stats_rate=options.plot_rate,
-                    enable_plots = options.plots, max_memory = options.maxmem,
-                    difference_obs = options.difference_obs, learning_rate=options.learning_rate )
+                    update_nsamp=options.update_size,
+                    batch_size=options.bs,
+                    dropout=options.dropout,
+                    timesteps_per_batch=options.update_freq,
+                    stats_rate=options.plot_rate,
+                    enable_plots = options.plots,
+                    max_memory = options.maxmem,
+                    difference_obs = options.difference_obs,
+                    learning_rate=options.learning_rate
+                    )
 agent.learn()
 if options.submit:
     env.monitor.close()

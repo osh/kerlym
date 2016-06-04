@@ -37,7 +37,7 @@ def simple_rnn(agent, env, dropout=0, h0_width=8, h1_width=8, **args):
     model.compile(loss='mse', optimizer=RMSprop(lr=args["learning_rate"]) )
     return model
 
-def simple_cnn(agent, env, dropout=0, **args):
+def simple_cnn(agent, env, dropout=0, learning_rate=1e-3, **args):
     S = Input(shape=[agent.input_dim])
     h = Reshape( agent.input_dim_orig )(S)
     h = TimeDistributed( Convolution2D(16, 8, 8, subsample=(4, 4), border_mode='same', activation='relu'))(h)
@@ -46,6 +46,15 @@ def simple_cnn(agent, env, dropout=0, **args):
     h = Dense(256, activation='relu')(h)
     V = Dense(env.action_space.n, activation='linear',init='zero')(h)
     model = Model(S, V)
-    model.compile(loss='mse', optimizer=RMSprop(lr=args["learning_rate"]) )
+    model.compile(loss='mse', optimizer=RMSprop(lr=learning_rate) )
     return model
 
+
+def karpathy_simple_pgnet(agent, env, dropout=0.5, learning_rate=1e-3, **args):
+    S = Input(shape=[agent.input_dim])
+    h = Dense(200, activation='relu', init='he_normal')(S)
+    h = Dropout(dropout)(h)
+    V = Dense(env.action_space.n, activation='sigmoid',init='zero')(h)
+    model = Model(S,V)
+    model.compile(loss='mse', optimizer=RMSprop(lr=learning_rate) )
+    return model

@@ -6,7 +6,7 @@ import numpy as np
 import networks
 
 class D2QN:
-    def __init__(self, env, nframes=1, epsilon=0.1, discount=0.99, train=1, update_nsamp=1000, timesteps_per_batch=1000, dropout=0, batch_size=32, nfit_epoch=1, epsilon_schedule=None, modelfactory=networks.simple_dnn, enable_plots=False, max_memory=100000, stats_rate=10, fit_verbose=0, difference_obs=False, preprocessor=None, **args):
+    def __init__(self, env, nframes=1, epsilon=0.1, discount=0.99, train=1, update_nsamp=1000, timesteps_per_batch=1000, dropout=0, batch_size=32, nfit_epoch=1, epsilon_schedule=None, modelfactory=networks.simple_dnn, enable_plots=False, max_memory=100000, stats_rate=10, fit_verbose=0, difference_obs=False, preprocessor=None, render=False, **kwargs):
         self.double = True
         self.fit_verbose = 0
         self.env = env
@@ -29,12 +29,12 @@ class D2QN:
         self.preprocessor = preprocessor
         self.batch_size = batch_size
         self.dropout = dropout
-        
+        self.render = render
+
         # set up output shape to be either pre-processed or not
         if not preprocessor == None:
             o = preprocessor(np.zeros( env.observation_space.shape ) )
-            pp_o = o.shape
-            self.input_dim_orig = [nframes] + list(pp_o)
+            self.input_dim_orig = [nframes] + list(o.shape)
         else:
             self.input_dim_orig = [nframes]+list(env.observation_space.shape)
         self.input_dim = np.product( self.input_dim_orig )
@@ -49,7 +49,7 @@ class D2QN:
         self.updates = 0
         self.model_updates = 0
 
-        self.models = map(lambda x: modelfactory(self, env=env, dropout=dropout, **args), [0,1])
+        self.models = map(lambda x: modelfactory(self, env=env, dropout=dropout, **kwargs), [0,1])
         self.stats = None
 
         print self.models[0].summary()
@@ -201,13 +201,14 @@ class D2QN:
 
             while (not done) and (t<max_pathlength):
                 t += 1
-                self.env.render()
+                if self.render:
+                    self.env.render()
                 action, values = self.act(obs)
                 maxv.append(max(values.flatten()))
                 minv.append(min(values.flatten()))
 
                 new_observation, reward, done, info = self.env.step(action)
-                
+
                 # compute preprocessed observation if enabled ...
                 if not self.preprocessor == None:
                     new_observation = self.preprocessor(new_observation)
