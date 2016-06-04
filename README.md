@@ -8,8 +8,9 @@ It is intended to make it easy to run, measure, and experiment with different le
 
 # Agents
 
- - ddqn, double q-learning agent with various Keras NN's for Q approximation
- - dqn, q-learning agent with various Keras NN's for Q approximation
+ - pg: policy gradient method with Keras NN policy network
+ - ddqn: double q-learning agent with various Keras NN's for Q approximation
+ - dqn: q-learning agent with various Keras NN's for Q approximation
 
 # Installation
 
