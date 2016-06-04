@@ -1,7 +1,7 @@
 """ Trains an agent with (stochastic) Policy Gradients on Pong. Uses OpenAI Gym. """
 import numpy as np
 import cPickle as pickle
-import gym
+import gym,keras
 import preproc, networks
 
 # This policy gradient implementation is an adaptation of Karpathy's GIST
@@ -13,6 +13,9 @@ class PG:
         dropout=0,
         render=False,
         discount=0.99,
+        file_model='pg_model.json',
+        file_weights='pg_model_wts.h5',
+        resume=False,
         *args, **kwargs):
 
         self.env = env
@@ -20,6 +23,9 @@ class PG:
         self.preprocessor = preprocessor
         self.nframes = nframes
         self.discount = discount
+        self.file_model = file_model
+        self.file_weights = file_weights
+        self.resume = resume
         print "init"
 
         # set up output shape to be either pre-processed or not
@@ -34,6 +40,18 @@ class PG:
         self.model = modelfactory(self, env=env, dropout=dropout, **kwargs)
         print self.model.summary()
 
+        # testing
+        if self.resume:
+            self.load()
+
+    def save(self):
+        open(self.file_model,'w').write(self.model.to_json())
+        self.model.save_weights(self.file_weights, overwrite=True)
+
+    def load(self):
+        self.model = keras.models.model_from_json(open(self.file_model).read())
+        self.model.load_weights(self.file_weights)
+        self.model.compile(optimizer='rmsprop', loss='mse')
 
     def discount_rewards(self, r):
       """ take 1D float array of rewards and compute discounted reward """
@@ -102,12 +120,13 @@ class PG:
             epdlogp *= discounted_epr # modulate the gradient with advantage (PG magic happens right here.)
 
             self.model.fit(epx, epdlogp,
-                    nb_epoch=1, verbose=2, shuffle=True)
+                    nb_epoch=3, verbose=2, shuffle=True)
 
             # boring book-keeping
             running_reward = reward_sum if running_reward is None else running_reward * 0.99 + reward_sum * 0.01
             print 'resetting env. episode reward total was %f. running mean: %f' % (reward_sum, running_reward)
-            if episode_number % 100 == 0: pickle.dump(model, open('save.p', 'wb'))
+            if episode_number % 100 == 0:
+                self.save()
             reward_sum = 0
             observation = self.env.reset() # reset env
             prev_x = None
