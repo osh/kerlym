@@ -26,7 +26,6 @@ class PG:
         self.file_model = file_model
         self.file_weights = file_weights
         self.resume = resume
-        print "init"
 
         # set up output shape to be either pre-processed or not
         if not preprocessor == None:
@@ -102,7 +101,6 @@ class PG:
           drs.append(reward) # record reward (has to be done after we call step() to get reward for previous action)
 
           if done: # an episode finished
-            print "EP DONE"
             episode_number += 1
 
             # stack together all inputs, hidden states, action gradients, and rewards for this episode
