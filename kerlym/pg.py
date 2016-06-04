@@ -118,7 +118,7 @@ class PG:
             epdlogp *= discounted_epr # modulate the gradient with advantage (PG magic happens right here.)
 
             self.model.fit(epx, epdlogp,
-                    nb_epoch=3, verbose=2, shuffle=True)
+                    nb_epoch=1, verbose=2, shuffle=True)
 
             # boring book-keeping
             running_reward = reward_sum if running_reward is None else running_reward * 0.99 + reward_sum * 0.01
