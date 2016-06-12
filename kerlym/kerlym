@@ -25,6 +25,8 @@ parser.add_option("-S", "--submit", dest="submit", action="store_true", default=
 parser.add_option("-a", "--agent", dest="agent", default="ddqn",                        help="Which learning algorithm to use [%default]")
 parser.add_option("-i", "--difference", dest="difference_obs", action="store_true", default=False,  help="Compute Difference Image for Training [%default]")
 parser.add_option("-r", "--learning_rate", dest="learning_rate", type='float', default=1e-4,  help="RMSprop Learning Rate [%default]")
+parser.add_option("-E", "--preproccessor", dest="preprocessor", default="none",         help="Preprocessor [%default]")
+parser.add_option("-R", "--render", dest="render", action='store_true', default=False,  help="Render game progress [%default]")
 (options, args) = parser.parse_args()
 
 print options.agent
@@ -42,6 +44,10 @@ agent_constructor = {
     "ddqn":agents.D2QN,
     "pg":agents.PG
 }[options.agent]
+preproc_ref = {
+    "none": None,
+    "atari": preproc.karpathy_preproc
+}[options.preprocessor]
 
 agent = agent_constructor(
                     env=env,
@@ -58,7 +64,9 @@ agent = agent_constructor(
                     enable_plots = options.plots,
                     max_memory = options.maxmem,
                     difference_obs = options.difference_obs,
-                    learning_rate=options.learning_rate
+                    learning_rate=options.learning_rate,
+                    preprocessor = preproc_ref,
+                    render = options.render
                     )
 agent.learn()
 if options.submit:
