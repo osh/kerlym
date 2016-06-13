@@ -6,13 +6,16 @@ import keras.backend as K
 import numpy as np
 from worker import *
 from kerlym import preproc
+from kerlym.statbin import statbin
+import matplotlib.pyplot as plt
 
 class DQN:
     def __init__(self, experiment="Breakout-v0", env=None, nthreads=16, nframes=1, epsilon=0.5, 
             enable_plots=False, render=False, learning_rate=1e-4, 
             modelfactory= networks.simple_cnn, difference_obs=True, 
             preprocessor = preproc.karpathy_preproc, discount=0.99,
-            batch_size = 32,
+            batch_size = 32, epsilon_min=0.05, epsilon_schedule=None,
+            stats_rate = 10, 
             **kwargs ):
         self.kwargs = kwargs
         self.experiment = experiment
@@ -24,6 +27,8 @@ class DQN:
         self.nframes = nframes
         self.learning_rate = learning_rate
         self.epsilon = epsilon
+        self.epsilon_min = epsilon_min
+        self.epsilon_schedule = epsilon_schedule
         self.gamma = discount
         self.preprocessor = preprocessor
         self.difference_obs = difference_obs
@@ -33,6 +38,11 @@ class DQN:
         self.TMAX = 80000000
         self.checkpoint_interval = 600
         self.checkpoint_dir = "/tmp/"
+        self.enable_plots = enable_plots
+        self.stats_rate = stats_rate
+        self.ipy_clear = False
+        self.next_plot = 0
+        self.e = 0
 
         # set up output shape to be either pre-processed or not
         if not self.preprocessor == None:
@@ -44,6 +54,15 @@ class DQN:
         self.input_dim = np.product( self.input_dim_orig )
         print self.input_dim, self.input_dim_orig
 
+        # set up plotting storage
+        self.stats = None
+        if self.enable_plots:
+            self.stats = {
+                "tr":statbin(self.stats_rate),     # Total Reward
+                "ft":statbin(self.stats_rate),     # Finishing Time
+                "minvf":statbin(self.stats_rate),     # Min Value Fn
+                "maxvf":statbin(self.stats_rate),     # Min Value Fn
+            }
 
         # set up the TF session
         self.session = tf.Session()
@@ -105,4 +124,64 @@ class DQN:
         if self.difference_obs and not type(last_obs) == type(None):
             obs = obs - last_obs
         return obs
+
+    def update_epsilon(self):
+        if not self.epsilon_schedule == None:
+            self.epsilon = max(self.epsilon_min, 
+                               self.epsilon_schedule(self.T, self.epsilon))
+
+    def update_stats(self, stats, tid):
+        self.e += 1
+        # update stats store
+        for k in stats.keys():
+            self.stats[k].add( stats[k] )
+
+        # only plot from thread 0
+        if self.stats == None or tid > 0:
+            return
+        
+        # plot if its time
+        if(self.e >= self.next_plot):
+            print "do plot"
+            self.next_plot = self.e + self.stats_rate
+            if self.ipy_clear:
+                from IPython import display
+                display.clear_output(wait=True)
+            fig = plt.figure(1)
+            fig.canvas.set_window_title("DDQN Training Stats for %s"%(self.env.__class__.__name__))
+            plt.clf()
+            plt.subplot(2,2,1)
+            self.stats["tr"].plot()
+            plt.title("Total Reward per Episode")
+            plt.xlabel("Episode")
+            plt.ylabel("Total Reward")
+            plt.legend(loc=2)
+            plt.subplot(2,2,2)
+            self.stats["ft"].plot()
+            plt.title("Finishing Time per Episode")
+            plt.xlabel("Episode")
+            plt.ylabel("Finishing Time")
+            plt.legend(loc=2)
+            plt.subplot(2,2,3)
+            self.stats["maxvf"].plot2(fill_col='lightblue', label='Avg Max VF')
+            self.stats["minvf"].plot2(fill_col='slategrey', label='Avg Min VF')
+            plt.title("Value Function Outputs")
+            plt.xlabel("Episode")
+            plt.ylabel("Value Fn")
+            plt.legend(loc=2)
+#            ax = plt.subplot(2,2,4)
+#            plt.plot(self.train_costs)
+#            plt.title("Training Loss")
+#            plt.xlabel("Training Epoch")
+#            plt.ylabel("Loss")
+            try:
+#                ax.set_yscale("log", nonposy='clip')
+                plt.tight_layout()
+            except:
+                pass
+            plt.show(block=False)
+            plt.draw()
+            plt.pause(0.001)
+
+              
 

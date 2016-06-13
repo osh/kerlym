@@ -26,6 +26,8 @@ class dqn_learner(threading.Thread):
             # Set up per-episode counters
             ep_reward = 0
             episode_ave_max_q = 0
+            episode_ave_min_q = 0
+            episode_ave_loss = 0
             ep_t = 0
 
             while True:
@@ -46,6 +48,7 @@ class dqn_learner(threading.Thread):
                 s_t1_single = self.parent.prepare_obs(s_t1_single)
                 s_t1 = self.parent.diff_obs(s_t1_single, s_t_single)
                 s_t1 = np.concatenate( (s_t[0:(self.parent.nframes-1)*np.product(self.parent.input_dim_orig[1:])], s_t1.flatten() ) )
+
                 # Accumulate gradients
                 readout_j1 = ops["target_q_values"].eval(session = self.parent.session, feed_dict = {ops["st"] : [s_t1]})
                 clipped_r_t = np.clip(r_t, -1, 1)
@@ -53,8 +56,6 @@ class dqn_learner(threading.Thread):
                     y_batch.append(clipped_r_t)
                 else:
                     y_batch.append(clipped_r_t + self.parent.gamma * np.max(readout_j1))
-
-                
                 a_batch.append(a_t)
                 s_batch.append(s_t)
     
@@ -67,6 +68,7 @@ class dqn_learner(threading.Thread):
                 ep_t += 1
                 ep_reward += r_t
                 episode_ave_max_q += np.max(readout_t)
+                episode_ave_min_q += np.min(readout_t)
 
                 # Optionally update target network
                 if self.parent.T % self.parent.target_network_update_frequency == 0:
@@ -85,6 +87,8 @@ class dqn_learner(threading.Thread):
                     a_batch = []
                     y_batch = []
 
+                self.parent.update_epsilon()
+
                 # Save model progress
                 if t % self.parent.checkpoint_interval == 0 and self.tid == 0:
                     fp = self.parent.checkpoint_dir+"/checkpoint_"+self.parent.experiment+".ckpt"
@@ -93,10 +97,13 @@ class dqn_learner(threading.Thread):
 
                 # Print end of episode stats
                 if terminal:
-                    stats = [ep_reward, episode_ave_max_q/float(ep_t), self.parent.epsilon] 
-                    #print stats
-                    #for i in range(len(stats)):
-                    #    self.parent.session.run(update_ops[i], feed_dict={summary_placeholders[i]:float(stats[i])})
+                    stats = {
+                        'tr': ep_reward,
+                        'ft':ep_t,
+                        'maxvf':episode_ave_max_q/float(ep_t),
+                        'minvf':episode_ave_min_q/float(ep_t)
+                        }
+                    self.parent.update_stats(stats, self.tid)
                     print "THREAD:", self.tid, "/ TIME", self.parent.T, "/ TIMESTEP", t, "/ EPSILON", self.parent.epsilon, "/ REWARD", ep_reward, "/ Q_MAX %.4f" % (episode_ave_max_q/float(ep_t))
                     break
 
