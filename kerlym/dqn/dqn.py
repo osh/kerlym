@@ -14,7 +14,8 @@ class DQN:
         env=lambda: envs.make(self.experiment)
         self.env = map(lambda x: env(), range(0, self.nthreads))
         self.model_factory = networks.simple_cnn
-        self.nframes = 4
+        self.nframes = 1
+        #self.nframes = 4
         self.learning_rate = 1e-4
         self.epsilon = 0.5
         self.gamma = 0.99
@@ -88,9 +89,12 @@ class DQN:
             t.join()
 
 
-    def prepare_obs(self, obs, last_obs=None):
+    def prepare_obs(self, obs):
         if not self.preprocessor == None:
             obs = self.preprocessor(obs)
+        return obs
+
+    def diff_obs(self, obs, last_obs=None):
         if self.difference_obs and not type(last_obs) == type(None):
             obs = obs - last_obs
         return obs
