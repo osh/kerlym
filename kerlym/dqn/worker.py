@@ -27,7 +27,7 @@ class dqn_learner(threading.Thread):
             ep_reward = 0
             episode_ave_max_q = 0
             episode_ave_min_q = 0
-            episode_ave_loss = 0
+            episode_ave_cost = []
             ep_t = 0
 
             while True:
@@ -77,11 +77,15 @@ class dqn_learner(threading.Thread):
                 # Optionally update online network
                 if t % self.parent.network_update_frequency == 0 or terminal:
                     if s_batch:
-                        self.parent.session.run(ops["grad_update"], 
-                                                    feed_dict = {
+                        fd = {
                                                           ops["y"] : y_batch,
                                                           ops["a"] : a_batch,
-                                                          ops["s"] : s_batch})
+                                                          ops["s"] : s_batch}
+                        self.parent.session.run(ops["grad_update"], feed_dict = fd)
+                                                    
+                        cost = ops["cost"].eval(session = self.parent.session, feed_dict = fd)
+                        episode_ave_cost.append(cost)
+
                     # Clear gradients
                     s_batch = []
                     a_batch = []
@@ -101,7 +105,8 @@ class dqn_learner(threading.Thread):
                         'tr': ep_reward,
                         'ft':ep_t,
                         'maxvf':episode_ave_max_q/float(ep_t),
-                        'minvf':episode_ave_min_q/float(ep_t)
+                        'minvf':episode_ave_min_q/float(ep_t),
+                        'cost':np.mean(episode_ave_cost)
                         }
                     self.parent.update_stats(stats, self.tid)
                     print "THREAD:", self.tid, "/ TIME", self.parent.T, "/ TIMESTEP", t, "/ EPSILON", self.parent.epsilon, "/ REWARD", ep_reward, "/ Q_MAX %.4f" % (episode_ave_max_q/float(ep_t))

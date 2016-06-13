@@ -64,8 +64,9 @@ class DQN:
             self.stats = {
                 "tr":statbin(self.stats_rate),     # Total Reward
                 "ft":statbin(self.stats_rate),     # Finishing Time
-                "minvf":statbin(self.stats_rate),     # Min Value Fn
-                "maxvf":statbin(self.stats_rate),     # Min Value Fn
+                "minvf":statbin(self.stats_rate),  # Min Value Fn
+                "maxvf":statbin(self.stats_rate),  # Min Value Fn
+                "cost":statbin(self.stats_rate),   # Loss
             }
 
         # set up the TF session
@@ -104,7 +105,9 @@ class DQN:
                  "reset_target_network_params" : reset_target_network_params,
                  "a" : a,
                  "y" : y,
-                 "grad_update" : grad_update}
+                 "grad_update" : grad_update,
+                 "cost": cost 
+                }
 
 
     def train(self):
@@ -157,7 +160,6 @@ class DQN:
         
         # plot if its time
         if(self.e >= self.next_plot):
-            print "do plot"
             self.next_plot = self.e + self.stats_rate
             if self.ipy_clear:
                 from IPython import display
@@ -184,11 +186,11 @@ class DQN:
             plt.xlabel("Episode")
             plt.ylabel("Value Fn")
             plt.legend(loc=2)
-#            ax = plt.subplot(2,2,4)
-#            plt.plot(self.train_costs)
-#            plt.title("Training Loss")
-#            plt.xlabel("Training Epoch")
-#            plt.ylabel("Loss")
+            ax = plt.subplot(2,2,4)
+            self.stats["cost"].plot2()
+            plt.title("Training Loss")
+            plt.xlabel("Training Epoch")
+            plt.ylabel("Loss")
             try:
 #                ax.set_yscale("log", nonposy='clip')
                 plt.tight_layout()
