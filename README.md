@@ -131,11 +131,12 @@ Eprint = {arXiv:1605.09221},
 
 # Acknowledgements
 
-Much thanks to all of the following projects for their inspiration and contributions
+Many thanks to the projects below for their inspiration and contributions
  - https://github.com/dandxy89/rf_helicopter
  - https://github.com/sherjilozair/dqn
  - https://gist.github.com/karpathy/a4166c7fe253700972fcbc77e4ea32c5
- - Keras and Gym
+ - https://github.com/coreylynch/async-rl
+ - Keras, Gym, TensorFlow and Theano
 
 -Tim
 
