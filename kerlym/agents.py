@@ -1,2 +1,2 @@
-from dqn import *
+from adqn import *
 from pg import *

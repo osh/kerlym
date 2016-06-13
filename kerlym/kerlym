@@ -27,6 +27,7 @@ parser.add_option("-i", "--difference", dest="difference_obs", action="store_tru
 parser.add_option("-r", "--learning_rate", dest="learning_rate", type='float', default=1e-4,  help="RMSprop Learning Rate [%default]")
 parser.add_option("-E", "--preproccessor", dest="preprocessor", default="none",         help="Preprocessor [%default]")
 parser.add_option("-R", "--render", dest="render", action='store_true', default=False,  help="Render game progress [%default]")
+parser.add_option("-c", "--concurrency", dest="nthreads", type='int', default=4,  help="Number of Worker Threads [%default]")
 (options, args) = parser.parse_args()
 
 print options.agent
@@ -35,9 +36,9 @@ training_dir = tempfile.mkdtemp()
 logging.getLogger().setLevel(logging.DEBUG)
 
 from gym import envs
-env = envs.make(options.env)
-if options.submit:
-    env.monitor.start(training_dir)
+#env = lambda x: envs.make(options.env)
+#if options.submit:
+#    env.monitor.start(training_dir)
 
 agent_constructor = {
     "dqn":agents.DQN,
@@ -50,7 +51,8 @@ preproc_ref = {
 }[options.preprocessor]
 
 agent = agent_constructor(
-                    env=env,
+                    env=lambda: envs.make(options.env),
+                    nthreads=options.nthreads,
                     nframes=options.nframes,
                     epsilon=options.epsilon,
                     discount=options.discount,
