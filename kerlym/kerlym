@@ -21,7 +21,7 @@ parser.add_option("-P", "--plots", dest="plots", action="store_true", default=Fa
 parser.add_option("-F", "--plot_rate", dest="plot_rate", default=10, type='int',        help="Plot update rate in episodes [%default]")
 parser.add_option("-a", "--agent", dest="agent", default="dqn",                         help="Which learning algorithm to use [%default]")
 parser.add_option("-i", "--difference", dest="difference_obs", action="store_true", default=False,  help="Compute Difference Image for Training [%default]")
-parser.add_option("-r", "--learning_rate", dest="learning_rate", type='float', default=1e-4,  help="RMSprop Learning Rate [%default]")
+parser.add_option("-r", "--learning_rate", dest="learning_rate", type='float', default=1e-4,  help="Learning Rate [%default]")
 parser.add_option("-E", "--preprocessor", dest="preprocessor", default="none",         help="Preprocessor [%default]")
 parser.add_option("-R", "--render", dest="render", action='store_true', default=False,  help="Render game progress [%default]")
 parser.add_option("-c", "--concurrency", dest="nthreads", type='int', default=1,  help="Number of Worker Threads [%default]")

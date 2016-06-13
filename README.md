@@ -9,8 +9,7 @@ It is intended to make it easy to run, measure, and experiment with different le
 # Agents
 
  - pg: policy gradient method with Keras NN policy network
- - ddqn: double q-learning agent with various Keras NN's for Q approximation
- - dqn: q-learning agent with various Keras NN's for Q approximation
+ - dqn: q-learning agent with Keras NN Q-fn approximation (/w N concurrent actor-learners)
 
 # Installation
 
@@ -33,13 +32,9 @@ Usage: kerlym [options]
 
 Options:
   -h, --help            show this help message and exit
-  -e ENV, --env=ENV     Which GYM Environment to run [MountainCar-v0]
+  -e ENV, --env=ENV     Which GYM Environment to run [Pong-v0]
   -n NET, --net=NET     Which NN Architecture to use for Q-Function
                         approximation [simple_dnn]
-  -f UPDATE_FREQ, --update_freq=UPDATE_FREQ
-                        Frequency of NN updates specified in time steps [1000]
-  -u UPDATE_SIZE, --update_size=UPDATE_SIZE
-                        Number of samples to train on each update [1100]
   -b BS, --batch_size=BS
                         Batch size durring NN training [32]
   -o DROPOUT, --dropout=DROPOUT
@@ -48,7 +43,7 @@ Options:
                         Exploration(1.0) vs Exploitation(0.0) action
                         probability [0.1]
   -D EPSILON_DECAY, --epsilon_decay=EPSILON_DECAY
-                        Rate of epsilon decay: epsilon*=(1-decay) [0.0001]
+                        Rate of epsilon decay: epsilon*=(1-decay) [1e-06]
   -s EPSILON_MIN, --epsilon_min=EPSILON_MIN
                         Min epsilon value after decay [0.05]
   -d DISCOUNT, --discount=DISCOUNT
@@ -61,12 +56,16 @@ Options:
   -P, --plots           Plot learning statistics while running [False]
   -F PLOT_RATE, --plot_rate=PLOT_RATE
                         Plot update rate in episodes [10]
-  -S, --submit          Submit Results to OpenAI [False]
   -a AGENT, --agent=AGENT
-                        Which learning algorithm to use [ddqn]
+                        Which learning algorithm to use [dqn]
   -i, --difference      Compute Difference Image for Training [False]
   -r LEARNING_RATE, --learning_rate=LEARNING_RATE
-                        RMSprop Learning Rate [0.0001]
+                        Learning Rate [0.0001]
+  -E PREPROCESSOR, --preprocessor=PREPROCESSOR
+                        Preprocessor [none]
+  -R, --render          Render game progress [False]
+  -c NTHREADS, --concurrency=NTHREADS
+                        Number of Worker Threads [1]
 ```
 
 or
@@ -76,20 +75,18 @@ from gym import envs
 env = envs.make("SpaceInvaders-v0")
 
 import kerlym
-agent = kerlym.agents.D2QN(env, 
+agent = kerlym.agents.dqn.DQN(env, 
                     nframes=1, 
                     epsilon=0.5, 
                     discount=0.99, 
                     modelfactory=kerlym.networks.simple_cnn,
-                    update_nsamp=1000, 
                     batch_size=32, 
                     dropout=0.1, 
                     enable_plots = True, 
-                    max_memory = 1000000, 
                     epsilon_schedule=lambda episode,epsilon: max(0.1, epsilon*(1-1e-4)),                
                     dufference_obs = True,
                     preprocessor = kerlym.perproc.karpathy_preproc,
-                    learning_rate = 1e-3
+                    learning_rate = 1e-4
                     )
 agent.learn()
 ```
