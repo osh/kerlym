@@ -8,28 +8,35 @@ from worker import *
 from kerlym import preproc
 
 class DQN:
-    def __init__(self):
-        self.experiment = "Breakout-v0"
-        self.nthreads = 16
-        env=lambda: envs.make(self.experiment)
+    def __init__(self, experiment="Breakout-v0", env=None, nthreads=16, nframes=1, epsilon=0.5, 
+            enable_plots=False, render=False, learning_rate=1e-4, 
+            modelfactory= networks.simple_cnn, difference_obs=True, 
+            preprocessor = preproc.karpathy_preproc, discount=0.99,
+            batch_size = 32,
+            **kwargs ):
+        self.kwargs = kwargs
+        self.experiment = experiment
+        if env==None:
+            env=lambda: envs.make(self.experiment)
+        self.nthreads = nthreads
         self.env = map(lambda x: env(), range(0, self.nthreads))
-        self.model_factory = networks.simple_cnn
-        self.nframes = 1
-        #self.nframes = 4
-        self.learning_rate = 1e-4
-        self.epsilon = 0.5
-        self.gamma = 0.99
-        self.network_update_frequency = 32
+        self.model_factory = modelfactory
+        self.nframes = nframes
+        self.learning_rate = learning_rate
+        self.epsilon = epsilon
+        self.gamma = discount
+        self.preprocessor = preprocessor
+        self.difference_obs = difference_obs
+        self.network_update_frequency = batch_size
         self.target_network_update_frequency = 10000
         self.T = 0
         self.TMAX = 80000000
         self.checkpoint_interval = 600
         self.checkpoint_dir = "/tmp/"
-        self.preprocessor = preproc.karpathy_preproc
-        self.difference_obs = True
 
         # set up output shape to be either pre-processed or not
         if not self.preprocessor == None:
+            print self.env[0].observation_space.shape
             o = self.preprocessor(np.zeros( self.env[0].observation_space.shape ) )
             self.input_dim_orig = [self.nframes]+list(o.shape)
         else:
@@ -46,7 +53,7 @@ class DQN:
 
     def setup_graphs(self):
         # Create shared deep q network
-        s, q_network = self.model_factory(self, self.env[0])
+        s, q_network = self.model_factory(self, self.env[0], **self.kwargs)
         network_params = q_network.trainable_weights
         q_values = q_network(s)
 

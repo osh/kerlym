@@ -1,1 +1,1 @@
-kerlym -e Acrobot-v0 -n simple_rnn -P
+kerlym -e Acrobot-v0 -n simple_dnn 

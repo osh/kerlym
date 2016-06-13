@@ -86,7 +86,7 @@ class dqn_learner(threading.Thread):
                     y_batch = []
 
                 # Save model progress
-                if t % self.parent.checkpoint_interval == 0:
+                if t % self.parent.checkpoint_interval == 0 and self.tid == 0:
                     fp = self.parent.checkpoint_dir+"/checkpoint_"+self.parent.experiment+".ckpt"
                     print "Writing checkpoint: ", fp
                     self.parent.saver.save(self.parent.session, fp, global_step = t)

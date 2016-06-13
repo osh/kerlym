@@ -20,7 +20,7 @@ class PG:
         enable_plots=False,
         *args, **kwargs):
 
-        self.env = env
+        self.env = env()
         self.render = render
         self.preprocessor = preprocessor
         self.nframes = nframes
@@ -32,14 +32,14 @@ class PG:
 
         # set up output shape to be either pre-processed or not
         if not preprocessor == None:
-            o = preprocessor(np.zeros( env.observation_space.shape ) )
+            o = preprocessor(np.zeros( self.env.observation_space.shape ) )
             self.input_dim_orig = [nframes] + list(o.shape)
         else:
-            self.input_dim_orig = [nframes]+list(env.observation_space.shape)
+            self.input_dim_orig = [nframes]+list(self.env.observation_space.shape)
         self.input_dim = np.product( self.input_dim_orig )
 
         # Make NN model
-        self.model = modelfactory(self, env=env, dropout=dropout, **kwargs)
+        self.model = modelfactory(self, env=self.env, dropout=dropout, **kwargs)
         print self.model.summary()
 
         # testing
@@ -70,7 +70,7 @@ class PG:
         discounted_r[t] = running_add
       return discounted_r
 
-    def learn(self, ipy_clear=False, max_episodes=100000000, max_pathlength=200):
+    def train(self, ipy_clear=False, max_episodes=100000000, max_pathlength=200):
 
         rewards = statbin.statbin(10)
         observation = self.env.reset()

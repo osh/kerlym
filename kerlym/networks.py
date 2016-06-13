@@ -62,7 +62,7 @@ def karpathy_simple_pgnet(agent, env, dropout=0.5, learning_rate=1e-4, **args):
 def pgconvnet(agent, env, dropout=0.5, learning_rate=1e-4, **args):
     S = Input(shape=[agent.input_dim])
     h = Reshape( agent.input_dim_orig )(S)
-    h = TimeDistributed( Convolution2D(16, 8, 8, subsample=(4, 4), border_mode='same', activation='relu'))(h)
+    h = TimeDistributed( Convolution2D(16, 8, 8, subsample=(4, 4), border_mode='same', activation='relu', dim_ordering='tf'))(h)
     h = Flatten()(h)
     h = Dropout(dropout)(h)
     h = Dense(64, activation='relu', init='he_normal')(h)

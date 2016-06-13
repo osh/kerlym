@@ -7,7 +7,7 @@ from kerlym import networks,agents,preproc
 
 from optparse import OptionParser
 parser = OptionParser()
-parser.add_option("-e", "--env", dest="env", default="MountainCar-v0",                  help="Which GYM Environment to run [%default]")
+parser.add_option("-e", "--env", dest="env", default="Pong-v0",                  help="Which GYM Environment to run [%default]")
 parser.add_option("-n", "--net", dest="net", default="simple_dnn",                      help="Which NN Architecture to use for Q-Function approximation [%default]")
 parser.add_option("-f", "--update_freq", dest="update_freq", default=1000, type='int',  help='Frequency of NN updates specified in time steps [%default]')
 parser.add_option("-u", "--update_size", dest="update_size", default=1100, type='int',  help='Number of samples to train on each update [%default]')
@@ -21,13 +21,12 @@ parser.add_option("-t", "--num_frames", dest="nframes", default=2, type='int',  
 parser.add_option("-m", "--max_mem", dest="maxmem", default=100000, type='int',         help="Max number of samples to remember [%default]")
 parser.add_option("-P", "--plots", dest="plots", action="store_true", default=False,    help="Plot learning statistics while running [%default]")
 parser.add_option("-F", "--plot_rate", dest="plot_rate", default=10, type='int',        help="Plot update rate in episodes [%default]")
-parser.add_option("-S", "--submit", dest="submit", action="store_true", default=False,  help="Submit Results to OpenAI [%default]")
-parser.add_option("-a", "--agent", dest="agent", default="ddqn",                        help="Which learning algorithm to use [%default]")
+parser.add_option("-a", "--agent", dest="agent", default="dqn",                         help="Which learning algorithm to use [%default]")
 parser.add_option("-i", "--difference", dest="difference_obs", action="store_true", default=False,  help="Compute Difference Image for Training [%default]")
 parser.add_option("-r", "--learning_rate", dest="learning_rate", type='float', default=1e-4,  help="RMSprop Learning Rate [%default]")
 parser.add_option("-E", "--preproccessor", dest="preprocessor", default="none",         help="Preprocessor [%default]")
 parser.add_option("-R", "--render", dest="render", action='store_true', default=False,  help="Render game progress [%default]")
-parser.add_option("-c", "--concurrency", dest="nthreads", type='int', default=4,  help="Number of Worker Threads [%default]")
+parser.add_option("-c", "--concurrency", dest="nthreads", type='int', default=1,  help="Number of Worker Threads [%default]")
 (options, args) = parser.parse_args()
 
 print options.agent
@@ -36,13 +35,8 @@ training_dir = tempfile.mkdtemp()
 logging.getLogger().setLevel(logging.DEBUG)
 
 from gym import envs
-#env = lambda x: envs.make(options.env)
-#if options.submit:
-#    env.monitor.start(training_dir)
-
 agent_constructor = {
-    "dqn":agents.DQN,
-    "ddqn":agents.D2QN,
+    "dqn":agents.dqn.DQN,
     "pg":agents.PG
 }[options.agent]
 preproc_ref = {
@@ -50,13 +44,22 @@ preproc_ref = {
     "atari": preproc.karpathy_preproc
 }[options.preprocessor]
 
+net = None
+if(options.agent=="dqn"):
+    net = eval("agents.dqn.networks.%s"%(options.net))
+elif(options.agent=="pg"):
+    net = eval("networks.%s"%(options.net))
+print net
+assert(not net == None)
+
 agent = agent_constructor(
+                    experiment=options.env,
                     env=lambda: envs.make(options.env),
                     nthreads=options.nthreads,
                     nframes=options.nframes,
                     epsilon=options.epsilon,
                     discount=options.discount,
-                    modelfactory=eval("networks.%s"%(options.net)),
+                    modelfactory=net,
                     epsilon_schedule=lambda episode,epsilon: max(0.05, epsilon*(1-options.epsilon_decay)),
                     update_nsamp=options.update_size,
                     batch_size=options.bs,
@@ -70,7 +73,4 @@ agent = agent_constructor(
                     preprocessor = preproc_ref,
                     render = options.render
                     )
-agent.learn()
-if options.submit:
-    env.monitor.close()
-    gym.upload(training_dir, algorithm_id="kerlym_%s_osh"%(options.agent))
+agent.train()
