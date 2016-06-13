@@ -2,7 +2,7 @@ kerlym --env Pong-v0 \
        --net simple_cnn \
        --agent dqn \
        --epsilon 1.0 \
-       --epsilon_decay 1e-6 \
+       --epsilon_decay 1e-8 \
        --num_frames 1 \
        --dropout 0 \
        --preprocessor atari \
@@ -10,6 +10,6 @@ kerlym --env Pong-v0 \
        --difference \
        --render \
        --plots \
-       --plot_rate 10 \
-       --concurrency 4
+       --plot_rate 50 \
+       --concurrency 16
 

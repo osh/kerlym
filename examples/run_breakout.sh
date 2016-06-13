@@ -1,4 +1,4 @@
-kerlym --env SpaceInvaders-v0 \
+kerlym --env Breakout-v0 \
        --net simple_cnn \
        --agent dqn \
        --epsilon 1.0 \
