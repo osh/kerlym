@@ -3,8 +3,7 @@
 This repo is intended to host a handful of reinforcement learning agents implemented using the Keras (http://keras.io/) deep learning library for Theano and Tensorflow.
 It is intended to make it easy to run, measure, and experiment with different learning configuration and underlying value function approximation networks while running a variery of OpenAI Gym environments (https://gym.openai.com/).
 
-![alt tag](https://pbs.twimg.com/media/Ciq7nJJUYAEB4rK.jpg:large)
-
+![Screenshot img](/examples/example.png?raw=true "KeRLym Screenshot")
 
 # Agents
 
