@@ -165,7 +165,7 @@ class DQN:
                 from IPython import display
                 display.clear_output(wait=True)
             fig = plt.figure(1)
-            fig.canvas.set_window_title("DDQN Training Stats for %s"%(self.env.__class__.__name__))
+            fig.canvas.set_window_title("DQN Training Stats for %s"%(self.env.__class__.__name__))
             plt.clf()
             plt.subplot(2,2,1)
             self.stats["tr"].plot()
