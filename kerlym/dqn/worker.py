@@ -11,18 +11,15 @@ class dqn_learner(threading.Thread):
         self.env = self.parent.env[tid]
 
     def run(self):
-
-        ops = self.parent.graph_ops
-
+        t = 0
         s_batch = []
         a_batch = []
         y_batch = []
-        t = 0
+        ops = self.parent.graph_ops
 
         while True:
             
-            s_t = self.env.reset()
-            # TODO: insert conditional preprocessing
+            s_t = self.parent.prepare_obs(self.env.reset())
             s_t = np.tile(s_t,self.parent.nframes).flatten()
             terminal = False
 
@@ -32,7 +29,6 @@ class dqn_learner(threading.Thread):
             ep_t = 0
 
             while True:
-                print t
                 # Forward the deep q network, get Q(s,a) values
                 readout_t = ops["q_values"].eval(session = self.parent.session, feed_dict = {ops["s"] : [s_t]})
 
@@ -47,6 +43,7 @@ class dqn_learner(threading.Thread):
 
                 # Gym excecutes action in game environment on behalf of actor-learner
                 s_t1, r_t, terminal, info = self.env.step(action_index)
+                s_t1 = self.parent.prepare_obs(s_t1, s_t)
                 s_t1 = np.concatenate( (s_t[0:(self.parent.nframes-1)*np.product(self.parent.input_dim_orig[1:])], s_t1.flatten() ) )
                 # Accumulate gradients
                 readout_j1 = ops["target_q_values"].eval(session = self.parent.session, feed_dict = {ops["st"] : [s_t1]})

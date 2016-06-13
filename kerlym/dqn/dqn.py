@@ -5,16 +5,16 @@ import tensorflow as tf
 import keras.backend as K
 import numpy as np
 from worker import *
+from kerlym import preproc
 
 class DQN:
     def __init__(self):
-        self.experiment = "Pong-v0"
-        self.nthreads = 2
+        self.experiment = "Breakout-v0"
+        self.nthreads = 16
         env=lambda: envs.make(self.experiment)
         self.env = map(lambda x: env(), range(0, self.nthreads))
         self.model_factory = networks.simple_cnn
         self.nframes = 4
-        preprocessor = None
         self.learning_rate = 1e-4
         self.epsilon = 0.5
         self.gamma = 0.99
@@ -24,14 +24,18 @@ class DQN:
         self.TMAX = 80000000
         self.checkpoint_interval = 600
         self.checkpoint_dir = "/tmp/"
+        self.preprocessor = preproc.karpathy_preproc
+        self.difference_obs = True
 
         # set up output shape to be either pre-processed or not
-        if not preprocessor == None:
-            o = preprocessor(np.zeros( env.observation_space.shape ) )
-            self.input_dim_orig = [self.nframes] + list(o.shape)
+        if not self.preprocessor == None:
+            o = self.preprocessor(np.zeros( self.env[0].observation_space.shape ) )
+            self.input_dim_orig = [self.nframes]+list(o.shape)
         else:
             self.input_dim_orig = [self.nframes]+list(self.env[0].observation_space.shape)
         self.input_dim = np.product( self.input_dim_orig )
+        print self.input_dim, self.input_dim_orig
+
 
         # set up the TF session
         self.session = tf.Session()
@@ -84,5 +88,10 @@ class DQN:
             t.join()
 
 
-
+    def prepare_obs(self, obs, last_obs=None):
+        if not self.preprocessor == None:
+            obs = self.preprocessor(obs)
+        if self.difference_obs and not type(last_obs) == type(None):
+            obs = obs - last_obs
+        return obs
 
