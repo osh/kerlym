@@ -43,6 +43,10 @@ class DQN:
         self.ipy_clear = False
         self.next_plot = 0
         self.e = 0
+        self.render = render
+
+        self.render_rate_hz = 5.0
+        self.render_ngames = 2
 
         # set up output shape to be either pre-processed or not
         if not self.preprocessor == None:
@@ -69,6 +73,7 @@ class DQN:
         K.set_session(self.session)
         self.setup_graphs()
         self.saver = tf.train.Saver()
+
 
     def setup_graphs(self):
         # Create shared deep q network
@@ -107,12 +112,22 @@ class DQN:
         self.session.run(self.graph_ops["reset_target_network_params"])
         self.session.run(tf.initialize_all_variables())
         threads = map(lambda tid: dqn_learner(self, tid), range(0,self.nthreads))
+        # start actor-learners
         for t in threads:
             t.start()
+
+        # Start rendering
+        if self.render:
+            self.rt = render_thread(self.render_rate_hz, self.env[0:self.render_ngames] )
+            self.rt.start()
 
         print "Waiting for threads to finish..."
         for t in threads:
             t.join()
+
+        # Shut down rendering
+        self.rt.done = True
+        self.rt.join()
 
 
     def prepare_obs(self, obs):

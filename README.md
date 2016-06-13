@@ -9,7 +9,7 @@ It is intended to make it easy to run, measure, and experiment with different le
 # Agents
 
  - pg: policy gradient method with Keras NN policy network
- - dqn: q-learning agent with Keras NN Q-fn approximation (/w N concurrent actor-learners)
+ - dqn: q-learning agent with Keras NN Q-fn approximation (/w concurrent actor-learners)
 
 # Installation
 

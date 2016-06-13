@@ -1,4 +1,4 @@
-import threading
+import threading, time
 import numpy as np
 import random
 
@@ -108,7 +108,18 @@ class dqn_learner(threading.Thread):
                     break
 
 
+class render_thread(threading.Thread):
+    def __init__(self, updates_per_sec=10.0, envs = []):
+        threading.Thread.__init__(self)
+        self.done = False
+        self.envs = envs
+        self.sleeptime = 1.0/updates_per_sec
 
+    def run(self):
+        while not self.done:
+            for e in self.envs:
+                e.render()
+            time.sleep(self.sleeptime)
 
 
 
