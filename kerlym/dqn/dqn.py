@@ -8,6 +8,7 @@ from worker import *
 from kerlym import preproc
 from kerlym.statbin import statbin
 import matplotlib.pyplot as plt
+import Queue
 
 class DQN:
     def __init__(self, experiment="Breakout-v0", env=None, nthreads=16, nframes=1, epsilon=0.5, 
@@ -47,6 +48,7 @@ class DQN:
 
         self.render_rate_hz = 5.0
         self.render_ngames = 2
+        self.plot_q = Queue.Queue()
 
         # set up output shape to be either pre-processed or not
         if not self.preprocessor == None:
@@ -124,13 +126,24 @@ class DQN:
             self.rt = render_thread(self.render_rate_hz, self.env[0:self.render_ngames] )
             self.rt.start()
 
+        # Start plotting
+        if self.enable_plots:
+            self.pt = plotter_thread(self)
+            self.pt.start()
+
         print "Waiting for threads to finish..."
         for t in threads:
             t.join()
 
         # Shut down rendering
-        self.rt.done = True
-        self.rt.join()
+        if self.render:
+            self.rt.done = True
+            self.rt.join()
+        
+        # Shut down plotting
+        if self.enable_plots:
+            self.pt.done = True
+            self.pt.join()
 
 
     def prepare_obs(self, obs):
@@ -148,7 +161,11 @@ class DQN:
             self.epsilon = max(self.epsilon_min, 
                                self.epsilon_schedule(self.T, self.epsilon))
 
-    def update_stats(self, stats, tid):
+    def update_stats_threadsafe(self, stats, tid=0):
+        if self.enable_plots:
+            self.plot_q.put(stats)
+
+    def update_stats(self, stats, tid=0):
         self.e += 1
         # update stats store
         for k in stats.keys():
@@ -165,7 +182,7 @@ class DQN:
                 from IPython import display
                 display.clear_output(wait=True)
             fig = plt.figure(1)
-            fig.canvas.set_window_title("DQN Training Stats for %s"%(self.env.__class__.__name__))
+            fig.canvas.set_window_title("DQN Training Stats for %s"%(self.experiment))
             plt.clf()
             plt.subplot(2,2,1)
             self.stats["tr"].plot()

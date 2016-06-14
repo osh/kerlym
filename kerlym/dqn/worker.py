@@ -108,7 +108,7 @@ class dqn_learner(threading.Thread):
                         'minvf':episode_ave_min_q/float(ep_t),
                         'cost':np.mean(episode_ave_cost)
                         }
-                    self.parent.update_stats(stats, self.tid)
+                    self.parent.update_stats_threadsafe(stats, self.tid)
                     print "THREAD:", self.tid, "/ TIME", self.parent.T, "/ TIMESTEP", t, "/ EPSILON", self.parent.epsilon, "/ REWARD", ep_reward, "/ Q_MAX %.4f" % (episode_ave_max_q/float(ep_t))
                     break
 
@@ -126,5 +126,18 @@ class render_thread(threading.Thread):
                 e.render()
             time.sleep(self.sleeptime)
 
+class plotter_thread(threading.Thread):
+    def __init__(self, parent):
+        threading.Thread.__init__(self)
+        self.parent = parent
+        self.done = False
+
+    def run(self):
+        while not self.done:
+            try:
+                st = self.parent.plot_q.get(block=True, timeout=1)
+                self.parent.update_stats(st,0)
+            except:
+                pass       
 
 
