@@ -6,14 +6,14 @@ def read(fname):
 
 setup(
     name = "KeRLym",
-    version = "0.0.1",
+    version = "0.0.2",
     author = "Tim O'Shea",
     author_email = "tim.oshea753@gmail.com",
     description = ("Keras Reinforcement Learners for Gym."),
     license = "MIT",
     keywords = "keras reinforcement learning gym",
     url = "http://www.kerlym.com",
-    packages=['kerlym'],
+    packages=['kerlym','kerlym/dqn'],
     long_description=read('README.md'),
     scripts=['kerlym/kerlym'],
 )
