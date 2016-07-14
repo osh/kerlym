@@ -79,42 +79,64 @@ class A3C:
 
 
     def setup_graphs(self):
-        # Create shared deep q network
-        s, q_network = self.model_factory(self, self.env[0], **self.kwargs)
-        network_params = q_network.trainable_weights
-        q_values = q_network(s)
+
+        # Create shared network
+        s, policy_network, value_network = self.model_factory(self, self.env[0], **self.kwargs)
+        policy_network_params = policy_network.trainable_weights
+        value_network_params = value_network.trainable_weights
+        pi_values = policy_network(s)
+        V_values = value_network(s)
 
         # Create shared target network
-        st, target_q_network = self.model_factory(self, self.env[0])
-        target_network_params = target_q_network.trainable_weights
-        target_q_values = target_q_network(st)
+        st, target_policy_network, target_value_network = self.model_factory(self, self.env[0])
+        target_policy_network_params = target_policy_network.trainable_weights
+        target_value_network_params = target_value_network.trainable_weights
+        target_pi_values = target_policy_network(st)
+        target_V_values = target_value_network(st)
 
         # Op for periodically updating target network with online network weights
-        reset_target_network_params = [target_network_params[i].assign(network_params[i]) for i in range(len(target_network_params))]
+        reset_target_policy_network_params = [target_policy_network_params[i].assign(policy_network_params[i]) for i in range(len(target_policy_network_params))]
+        reset_target_value_network_params = [target_value_network_params[i].assign(value_network_params[i]) for i in range(len(target_value_network_params))]
 
-        # Define cost and gradient update op
-        a = tf.placeholder("float", [None, self.env[0].action_space.n])
-        y = tf.placeholder("float", [None])
-        action_q_values = tf.reduce_sum(tf.mul(q_values, a), reduction_indices=1)
-        cost = tf.reduce_mean(tf.square(y - action_q_values))
-        optimizer = tf.train.AdamOptimizer(self.learning_rate)
-        grad_update = optimizer.minimize(cost, var_list=network_params)
-    
-        self.graph_ops = {"s" : s,
-                 "q_values" : q_values,
+        # Define A3C cost and gradient update equations
+        #a = tf.placeholder("float", [None, self.env[0].action_space.n])
+        #y = tf.placeholder("float", [None])
+        R = tf.placeholder("float", [None, 1])
+        #action_pi_values = tf.reduce_sum(tf.mul(pi_values, a), reduction_indices=1)
+
+        # policy network update
+        cost_pi = tf.reduce_mean( K.log( pi_values * (R-V_values) ) )
+        #cost_pi = tf.reduce_mean( K.log( action_pi_values * (R-V_values) ) )
+        optimizer_pi = tf.train.AdamOptimizer(self.learning_rate)
+        grad_update_pi = optimizer_pi.minimize(cost_pi, var_list=policy_network_params)
+
+        # value network update
+        cost_V = tf.reduce_mean( tf.square( R - V_values ) )
+        optimizer_V = tf.train.AdamOptimizer(self.learning_rate)
+        grad_update_V = optimizer_V.minimize(cost_V, var_list=value_network_params)
+ 
+        # store variables and update functions for access   
+        self.graph_ops = {
+                 "R" : R,
+                 "s" : s,
+                 "pi_values" : pi_values,
+                 "V_values" : V_values,
                  "st" : st,
-                 "target_q_values" : target_q_values,
-                 "reset_target_network_params" : reset_target_network_params,
-                 "a" : a,
-                 "y" : y,
-                 "grad_update" : grad_update,
-                 "cost": cost 
+                 "reset_target_policy_network_params" : reset_target_policy_network_params,
+                 "reset_target_value_network_params" : reset_target_value_network_params,
+#                 "a" : a,
+#                 "y" : y,
+                 "grad_update_pi" : grad_update_pi,
+                 "cost_pi" : cost_pi,
+                 "grad_update_V" : grad_update_V,
+                 "cost_V" : cost_V
                 }
 
 
     def train(self):
         # Initialize target network weights
-        self.session.run(self.graph_ops["reset_target_network_params"])
+        self.session.run(self.graph_ops["reset_target_policy_network_params"])
+        self.session.run(self.graph_ops["reset_target_value_network_params"])
         self.session.run(tf.initialize_all_variables())
         threads = map(lambda tid: a3c_learner(self, tid), range(0,self.nthreads))
         # start actor-learners

@@ -9,6 +9,9 @@ class a3c_learner(threading.Thread):
         self.parent = parent
         self.tid = tid
         self.env = self.parent.env[tid]
+        self.config = {
+            "ep_max_t":1000,
+            }
 
     def run(self):
         t = 0
@@ -28,16 +31,25 @@ class a3c_learner(threading.Thread):
             episode_ave_max_q = 0
             episode_ave_min_q = 0
             episode_ave_cost = []
-            ep_t = 0
 
-            while True:
-                # Forward the deep q network, get Q(s,a) values
-                readout_t = ops["q_values"].eval(session = self.parent.session, feed_dict = {ops["s"] : [s_t]})
-                readout_t_norm = readout_t / np.sum(readout_t)
+            ep_t = 0
+            ep_finished = False
+
+            s_i = [s_t]
+            r_i = []
+
+            # run an episode
+            while not ep_finished:
+
+                # Forward pass: get pi(a_t|s_t,Theta') 
+                readout_t = ops["pi_values"].eval(session = self.parent.session, feed_dict = {ops["s"] : [s_t]})
+                readout_t_norm = readout_t / np.sum(readout_t)  
+                if(np.isnan(readout_t_norm).any()): # if we were div/0 --> push into equiprobable state
+                    readout_t_norm[:] = 1.0/self.env.action_space.n
 
                 # Choose next action based on policy gradient selection
                 a_t = np.zeros([self.env.action_space.n])
-                action_index = np.random.choice(range(self.env.action_space.n), p=readout_t_norm)
+                action_index = np.random.choice(range(self.env.action_space.n), p=readout_t_norm[0])
                 a_t[action_index] = 1
 
                 # Gym excecutes action in game environment on behalf of actor-learner
@@ -46,70 +58,112 @@ class a3c_learner(threading.Thread):
                 s_t1 = self.parent.diff_obs(s_t1_single, s_t_single)
                 s_t1 = np.concatenate( (s_t[0:(self.parent.nframes-1)*np.product(self.parent.input_dim_orig[1:])], s_t1.flatten() ) )
 
-                # Accumulate gradients
-                readout_j1 = ops["target_q_values"].eval(session = self.parent.session, feed_dict = {ops["st"] : [s_t1]})
-                clipped_r_t = np.clip(r_t, -1, 1)
-                if terminal:
-                    y_batch.append(clipped_r_t)
-                else:
-                    y_batch.append(clipped_r_t + self.parent.gamma * np.max(readout_j1))
-                a_batch.append(a_t)
-                s_batch.append(s_t)
-    
-                # Update the state and counters
+                # update N-state and diff-state tracking values ...
                 s_t = s_t1
                 s_t_single = s_t1_single
-                self.parent.T += 1
+
+                # store state/reward values for episode training
+                s_i.append(s_t)
+                r_i.append(r_t)
+                
+                # update timing
+                ep_t += 1
                 t += 1
 
-                ep_t += 1
-                ep_reward += r_t
-                episode_ave_max_q += np.max(readout_t)
-                episode_ave_min_q += np.min(readout_t)
+                if terminal or ep_t > self.config["ep_max_t"]:
+                    ep_finished = True
 
-                # Optionally update target network
-                if self.parent.T % self.parent.target_network_update_frequency == 0:
-                    self.parent.session.run(ops["reset_target_network_params"])
-
-                # Optionally update online network
-                if t % self.parent.network_update_frequency == 0 or terminal:
-                    if s_batch:
-                        fd = {
-                                                          ops["y"] : y_batch,
-                                                          ops["a"] : a_batch,
-                                                          ops["s"] : s_batch}
-                        self.parent.session.run(ops["grad_update"], feed_dict = fd)
-                                                    
-                        cost = ops["cost"].eval(session = self.parent.session, feed_dict = fd)
-                        episode_ave_cost.append(cost)
-
-                    # Clear gradients
-                    s_batch = []
-                    a_batch = []
-                    y_batch = []
-
-                self.parent.update_epsilon()
-
-                # Save model progress
-                if t % self.parent.checkpoint_interval == 0 and self.tid == 0:
-                    fp = self.parent.checkpoint_dir+"/checkpoint_"+self.parent.experiment+".ckpt"
-                    print "Writing checkpoint: ", fp
-                    self.parent.saver.save(self.parent.session, fp, global_step = t)
-
-                # Print end of episode stats
-                if terminal:
-                    stats = {
-                        'tr': ep_reward,
-                        'ft':ep_t,
-                        'maxvf':episode_ave_max_q/float(ep_t),
-                        'minvf':episode_ave_min_q/float(ep_t),
-                        'cost':np.mean(episode_ave_cost)
-                        }
-                    self.parent.update_stats_threadsafe(stats, self.tid)
-                    print "THREAD:", self.tid, "/ TIME", self.parent.T, "/ TIMESTEP", t, "/ EPSILON", self.parent.epsilon, "/ REWARD", ep_reward, "/ Q_MAX %.4f" % (episode_ave_max_q/float(ep_t))
-                    break
+            # Determine end reward ...
+            if terminal:
+                R = 0
+            else:
+                # set R from our value fn approx
+                R = ops["V_values"].eval(session = self.parent.session, feed_dict = {ops["st"] : [s_t]})
 
 
+            # Perform updates for each time step
+            for t_i in range(ep_t-1,-1,-1):
+                R = np.array( [r_i[t_i] + self.parent.gamma*R], dtype=np.float32 )
+                s = s_i[t_i]
+
+                s = np.expand_dims(s, 0)
+                R = R.reshape([1,1])
+
+                fd = { ops["R"] : R, ops["s"] : s }
+                #fd = { ops["R"] : R, ops["y"] : y_batch, ops["a"] : a_batch, ops["s"] : s_batch}
+                self.parent.session.run(ops["grad_update_pi"], feed_dict = fd)
+                self.parent.session.run(ops["grad_update_V"], feed_dict = fd)
+ 
+            # async update of thetas from theta's
+            self.parent.session.run(ops["reset_target_policy_network_params"])
+            self.parent.session.run(ops["reset_target_value_network_params"])
+
+#                # Accumulate gradients
+#                readout_j1 = ops["target_q_values"].eval(session = self.parent.session, feed_dict = {ops["st"] : [s_t1]})
+
+
+#                clipped_r_t = np.clip(r_t, -1, 1)
+#                if terminal:
+#                    y_batch.append(clipped_r_t)
+#                else:
+#                    y_batch.append(clipped_r_t + self.parent.gamma * np.max(readout_j1))
+#                a_batch.append(a_t)
+#                s_batch.append(s_t)
+#    
+#                # Update the state and counters
+#                s_t = s_t1
+#                s_t_single = s_t1_single
+#                self.parent.T += 1
+#                t += 1
+#
+#                ep_t += 1
+#                ep_reward += r_t
+#                episode_ave_max_q += np.max(readout_t)
+#                episode_ave_min_q += np.min(readout_t)
+#
+#                # Optionally update target network
+#                if self.parent.T % self.parent.target_network_update_frequency == 0:
+#                    self.parent.session.run(ops["reset_target_network_params"])
+#
+#                # Optionally update online network
+#                if t % self.parent.network_update_frequency == 0 or terminal:
+#                    if s_batch:
+#                        fd = {
+#                                                          ops["y"] : y_batch,
+#                                                          ops["a"] : a_batch,
+#                                                          ops["s"] : s_batch}
+#                        self.parent.session.run(ops["grad_update"], feed_dict = fd)
+#                                                    
+#                        cost = ops["cost"].eval(session = self.parent.session, feed_dict = fd)
+#                        episode_ave_cost.append(cost)
+#
+#                    # Clear gradients
+#                    s_batch = []
+#                    a_batch = []
+#                    y_batch = []
+#
+#                self.parent.update_epsilon()
+#
+#                # Save model progress
+#                if t % self.parent.checkpoint_interval == 0 and self.tid == 0:
+#                    fp = self.parent.checkpoint_dir+"/checkpoint_"+self.parent.experiment+".ckpt"
+#                    print "Writing checkpoint: ", fp
+#                    self.parent.saver.save(self.parent.session, fp, global_step = t)
+#
+#                # Print end of episode stats
+#                if terminal:
+#                    stats = {
+#                        'tr': ep_reward,
+#                        'ft':ep_t,
+#                        'maxvf':episode_ave_max_q/float(ep_t),
+#                        'minvf':episode_ave_min_q/float(ep_t),
+#                        'cost':np.mean(episode_ave_cost)
+#                        }
+#                    self.parent.update_stats_threadsafe(stats, self.tid)
+#                    print "THREAD:", self.tid, "/ TIME", self.parent.T, "/ TIMESTEP", t, "/ EPSILON", self.parent.epsilon, "/ REWARD", ep_reward, "/ Q_MAX %.4f" % (episode_ave_max_q/float(ep_t))
+#                    break
+#
+#
 class render_thread(threading.Thread):
     def __init__(self, updates_per_sec=10.0, envs = []):
         threading.Thread.__init__(self)

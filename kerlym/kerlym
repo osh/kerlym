@@ -3,7 +3,7 @@ import os,random
 #os.environ["THEANO_FLAGS"] = "mode=FAST_RUN,device=gpu%d,floatX=float32"%(random.randint(0,3))
 import tempfile,logging,sys
 
-from kerlym import networks,agents,preproc,dqn
+from kerlym import networks,agents,preproc,dqn,a3c
 
 from optparse import OptionParser
 parser = OptionParser()
@@ -34,6 +34,7 @@ logging.getLogger().setLevel(logging.DEBUG)
 
 from gym import envs
 agent_constructor = {
+    "a3c":agents.A3C,
     "dqn":agents.DQN,
     "pg":agents.PG
 }[options.agent]
@@ -45,6 +46,8 @@ preproc_ref = {
 net = None
 if(options.agent=="dqn"):
     net = eval("dqn.networks.%s"%(options.net))
+elif(options.agent=="a3c"):
+    net = eval("a3c.networks.%s"%(options.net))
 elif(options.agent=="pg"):
     net = eval("networks.%s"%(options.net))
 assert(not net == None)

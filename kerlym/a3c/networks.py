@@ -42,19 +42,31 @@ def simple_rnn(agent, env, dropout=0, h0_width=8, h1_width=8, **args):
 def simple_cnn(agent, env, dropout=0, learning_rate=1e-3, **args):
   with tf.device("/cpu:0"):
     state = tf.placeholder('float', [None, agent.input_dim])
+
+    # Policy Model
     S = Input(shape=[agent.input_dim])
     h = Reshape( agent.input_dim_orig )(S)
     h = TimeDistributed( Convolution2D(16, 8, 8, subsample=(4, 4), border_mode='same', activation='relu', dim_ordering='tf'))(h)
-#    h = Dropout(dropout)(h)
     h = TimeDistributed( Convolution2D(32, 4, 4, subsample=(2, 2), border_mode='same', activation='relu', dim_ordering='tf'))(h)
     h = Flatten()(h)
-#    h = Dropout(dropout)(h)
     h = Dense(256, activation='relu')(h)
-#    h = Dropout(dropout)(h)
     h = Dense(128, activation='relu')(h)
     V = Dense(env.action_space.n, activation='linear',init='zero')(h)
-    model = Model(S, V)
-    model.compile(loss='mse', optimizer=RMSprop(lr=learning_rate) )
-    return state, model
+    policy_model = Model(S, V)
+    policy_model.compile(loss='mse', optimizer=RMSprop(lr=learning_rate) )
+
+    # Value Model
+    S = Input(shape=[agent.input_dim])
+    h = Reshape( agent.input_dim_orig )(S)
+    h = TimeDistributed( Convolution2D(16, 8, 8, subsample=(4, 4), border_mode='same', activation='relu', dim_ordering='tf'))(h)
+    h = TimeDistributed( Convolution2D(32, 4, 4, subsample=(2, 2), border_mode='same', activation='relu', dim_ordering='tf'))(h)
+    h = Flatten()(h)
+    h = Dense(256, activation='relu')(h)
+    h = Dense(128, activation='relu')(h)
+    V = Dense(1, activation='linear',init='zero')(h)
+    value_model = Model(S, V)
+    value_model.compile(loss='mse', optimizer=RMSprop(lr=learning_rate) )
+
+    return state, policy_model, value_model
 
 
