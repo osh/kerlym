@@ -13,7 +13,7 @@ setup(
     license = "MIT",
     keywords = "keras reinforcement learning gym",
     url = "http://www.kerlym.com",
-    packages=['kerlym','kerlym/dqn'],
+    packages=['kerlym','kerlym/dqn', 'kerlym/a3c'],
     long_description=read('README.md'),
     scripts=['kerlym/kerlym'],
 )
