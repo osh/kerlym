@@ -11,12 +11,12 @@ import matplotlib.pyplot as plt
 import Queue
 
 class A3C:
-    def __init__(self, experiment="Breakout-v0", env=None, nthreads=16, nframes=1, epsilon=0.5, 
-            enable_plots=False, render=False, learning_rate=1e-4, 
-            modelfactory= networks.simple_cnn, difference_obs=True, 
+    def __init__(self, experiment="Breakout-v0", env=None, nthreads=16, nframes=1, epsilon=0.5,
+            enable_plots=False, render=False, learning_rate=1e-4,
+            modelfactory= networks.simple_cnn, difference_obs=True,
             preprocessor = preproc.karpathy_preproc, discount=0.99,
             batch_size = 32, epsilon_min=0.05, epsilon_schedule=None,
-            stats_rate = 10, 
+            stats_rate = 10,
             **kwargs ):
         self.kwargs = kwargs
         self.experiment = experiment
@@ -37,7 +37,7 @@ class A3C:
         self.target_network_update_frequency = 10000
         self.T = 0
         self.TMAX = 80000000
-        self.checkpoint_interval = 600
+        self.checkpoint_interval = 10
         self.checkpoint_dir = "/tmp/"
         self.enable_plots = enable_plots
         self.stats_rate = stats_rate
@@ -99,14 +99,14 @@ class A3C:
         reset_target_value_network_params = [target_value_network_params[i].assign(value_network_params[i]) for i in range(len(target_value_network_params))]
 
         # Define A3C cost and gradient update equations
-        #a = tf.placeholder("float", [None, self.env[0].action_space.n])
+        a = tf.placeholder("float", [None, self.env[0].action_space.n])
         #y = tf.placeholder("float", [None])
         R = tf.placeholder("float", [None, 1])
-        #action_pi_values = tf.reduce_sum(tf.mul(pi_values, a), reduction_indices=1)
+        action_pi_values = tf.reduce_sum(tf.mul(pi_values, a), reduction_indices=1)
 
         # policy network update
-        cost_pi = tf.reduce_mean( K.log( pi_values * (R-V_values) ) )
-        #cost_pi = tf.reduce_mean( K.log( action_pi_values * (R-V_values) ) )
+        #cost_pi = tf.reduce_mean( K.log( pi_values * (R-V_values) ) )
+        cost_pi = tf.reduce_mean( K.log( action_pi_values * (R-V_values) ) )
         optimizer_pi = tf.train.AdamOptimizer(self.learning_rate)
         grad_update_pi = optimizer_pi.minimize(cost_pi, var_list=policy_network_params)
 
@@ -114,8 +114,8 @@ class A3C:
         cost_V = tf.reduce_mean( tf.square( R - V_values ) )
         optimizer_V = tf.train.AdamOptimizer(self.learning_rate)
         grad_update_V = optimizer_V.minimize(cost_V, var_list=value_network_params)
- 
-        # store variables and update functions for access   
+
+        # store variables and update functions for access
         self.graph_ops = {
                  "R" : R,
                  "s" : s,
@@ -124,7 +124,7 @@ class A3C:
                  "st" : st,
                  "reset_target_policy_network_params" : reset_target_policy_network_params,
                  "reset_target_value_network_params" : reset_target_value_network_params,
-#                 "a" : a,
+                 "a" : a,
 #                 "y" : y,
                  "grad_update_pi" : grad_update_pi,
                  "cost_pi" : cost_pi,
@@ -161,7 +161,7 @@ class A3C:
         if self.render:
             self.rt.done = True
             self.rt.join()
-        
+
         # Shut down plotting
         if self.enable_plots:
             self.pt.done = True
@@ -180,7 +180,7 @@ class A3C:
 
     def update_epsilon(self):
         if not self.epsilon_schedule == None:
-            self.epsilon = max(self.epsilon_min, 
+            self.epsilon = max(self.epsilon_min,
                                self.epsilon_schedule(self.T, self.epsilon))
 
     def update_stats_threadsafe(self, stats, tid=0):
@@ -196,7 +196,7 @@ class A3C:
         # only plot from thread 0
         if self.stats == None or tid > 0:
             return
-        
+
         # plot if its time
         if(self.e >= self.next_plot):
             self.next_plot = self.e + self.stats_rate
@@ -238,6 +238,3 @@ class A3C:
             plt.show(block=False)
             plt.draw()
             plt.pause(0.001)
-
-              
-
