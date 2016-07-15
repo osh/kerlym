@@ -107,16 +107,16 @@ class A3C:
         action_pi_values = tf.reduce_sum(tf.mul(pi_values, a), reduction_indices=1)
 
         # policy network update
-        cost_pi = K.log( tf.reduce_sum(  action_pi_values ) ) * (R-V_values)
+        cost_pi = -K.log( tf.reduce_sum(  action_pi_values ) ) * (R-V_values)
         #optimizer_pi = keras.optimizers.Adam(self.learning_rate, clipvalue=1e3)
-        optimizer_pi = tf.train.AdamOptimizer(self.learning_rate)
+        optimizer_pi = tf.train.RMSPropOptimizer(self.learning_rate)
         grad_update_pi = optimizer_pi.minimize(cost_pi, var_list=policy_network_params)
         grad_pi = K.gradients(cost_pi, policy_network_params)
 
         # value network update
         cost_V = tf.reduce_mean( tf.square( R - V_values ) )
         #optimizer_V = keras.optimizers.Adam(self.learning_rate, clipvalue=1e3)
-        optimizer_V = tf.train.AdamOptimizer(self.learning_rate)
+        optimizer_V = tf.train.RMSPropOptimizer(self.learning_rate)
         grad_update_V = optimizer_V.minimize(cost_V, var_list=value_network_params)
         grad_V = K.gradients(cost_V, value_network_params)
 
