@@ -51,7 +51,7 @@ def simple_cnn(agent, env, dropout=0, learning_rate=1e-3, **args):
     h = Flatten()(h)
     h = Dense(256, activation='relu')(h)
     h = Dense(128, activation='relu')(h)
-    V = Dense(env.action_space.n, activation='linear',init='zero')(h)
+    V = Dense(env.action_space.n, activation='sigmoid',init='zero')(h)
     policy_model = Model(S, V)
     policy_model.compile(loss='mse', optimizer=RMSprop(lr=learning_rate) )
 

@@ -46,8 +46,6 @@ class a3c_learner(threading.Thread):
                 # Forward pass: get pi(a_t|s_t,Theta')
                 readout_t = ops["pi_values"].eval(session = self.parent.session, feed_dict = {ops["s"] : [s_t]})
                 readout_t_norm = readout_t / np.sum(readout_t)
-                if(np.isnan(readout_t_norm).any()): # if we were div/0 --> push into equiprobable state
-                    readout_t_norm[:] = 1.0/self.env.action_space.n
 
                 # Choose next action based on policy gradient selection
                 a_t = np.zeros([self.env.action_space.n])
@@ -87,7 +85,7 @@ class a3c_learner(threading.Thread):
                 R = 0
             else:
                 # set R from our value fn approx
-                R = ops["V_values"].eval(session = self.parent.session, feed_dict = {ops["st"] : [s_t]})
+                R = ops["V_values"].eval(session = self.parent.session, feed_dict = {ops["s"] : [s_t]})
 
             # Perform updates for each time step
             for t_i in range(ep_t-1,-1,-1):

@@ -100,13 +100,11 @@ class A3C:
 
         # Define A3C cost and gradient update equations
         a = tf.placeholder("float", [None, self.env[0].action_space.n])
-        #y = tf.placeholder("float", [None])
         R = tf.placeholder("float", [None, 1])
         action_pi_values = tf.reduce_sum(tf.mul(pi_values, a), reduction_indices=1)
 
         # policy network update
-        #cost_pi = tf.reduce_mean( K.log( pi_values * (R-V_values) ) )
-        cost_pi = tf.reduce_mean( K.log( action_pi_values * (R-V_values) ) )
+        cost_pi = tf.reduce_mean( K.log( 1e-3 + action_pi_values * (R-V_values) ) )
         optimizer_pi = tf.train.AdamOptimizer(self.learning_rate)
         grad_update_pi = optimizer_pi.minimize(cost_pi, var_list=policy_network_params)
 
@@ -125,7 +123,6 @@ class A3C:
                  "reset_target_policy_network_params" : reset_target_policy_network_params,
                  "reset_target_value_network_params" : reset_target_value_network_params,
                  "a" : a,
-#                 "y" : y,
                  "grad_update_pi" : grad_update_pi,
                  "cost_pi" : cost_pi,
                  "grad_update_V" : grad_update_V,
