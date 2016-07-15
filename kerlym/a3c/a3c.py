@@ -95,6 +95,8 @@ class A3C:
         target_V_values = target_value_network(st)
 
         # Op for periodically updating target network with online network weights
+        reset_local_policy_network_params = [policy_network_params[i].assign(target_policy_network_params[i]) for i in range(len(policy_network_params))]
+        reset_local_value_network_params = [value_network_params[i].assign(target_value_network_params[i]) for i in range(len(value_network_params))]
         reset_target_policy_network_params = [target_policy_network_params[i].assign(policy_network_params[i]) for i in range(len(target_policy_network_params))]
         reset_target_value_network_params = [target_value_network_params[i].assign(value_network_params[i]) for i in range(len(target_value_network_params))]
 
@@ -102,16 +104,19 @@ class A3C:
         a = tf.placeholder("float", [None, self.env[0].action_space.n])
         R = tf.placeholder("float", [None, 1])
         action_pi_values = tf.reduce_sum(tf.mul(pi_values, a), reduction_indices=1)
+        action_V_values = tf.reduce_sum(tf.mul(V_values, a), reduction_indices=1)
 
         # policy network update
-        cost_pi = tf.reduce_mean( K.log( 1e-3 + action_pi_values * (R-V_values) ) )
+        cost_pi = tf.reduce_mean( K.log( 1 + action_pi_values * (R-action_V_values) ) )
         optimizer_pi = tf.train.AdamOptimizer(self.learning_rate)
         grad_update_pi = optimizer_pi.minimize(cost_pi, var_list=policy_network_params)
 
         # value network update
-        cost_V = tf.reduce_mean( tf.square( R - V_values ) )
+        cost_V = tf.reduce_mean( tf.square( R - action_V_values ) )
         optimizer_V = tf.train.AdamOptimizer(self.learning_rate)
         grad_update_V = optimizer_V.minimize(cost_V, var_list=value_network_params)
+        #grad_update_V = K.function([value_network_params], K.gradients(cost_V, [value_network_params]))
+        #grad_update_V = K.gradients(cost_V, [value_network_params])
 
         # store variables and update functions for access
         self.graph_ops = {
@@ -122,6 +127,8 @@ class A3C:
                  "st" : st,
                  "reset_target_policy_network_params" : reset_target_policy_network_params,
                  "reset_target_value_network_params" : reset_target_value_network_params,
+                 "reset_local_policy_network_params" : reset_local_policy_network_params,
+                 "reset_local_value_network_params" : reset_local_value_network_params,
                  "a" : a,
                  "grad_update_pi" : grad_update_pi,
                  "cost_pi" : cost_pi,

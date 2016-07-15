@@ -16,13 +16,11 @@ class a3c_learner(threading.Thread):
     def run(self):
         t = 0
         n_ep = 0
-        s_batch = []
-        a_batch = []
-        y_batch = []
         ops = self.parent.graph_ops
 
         while True:
 
+            # state storage ...
             s_t_single = self.parent.prepare_obs(self.env.reset())
             s_t = np.tile(s_t_single,self.parent.nframes).flatten()
             terminal = False
@@ -32,13 +30,17 @@ class a3c_learner(threading.Thread):
             episode_ave_max_q = 0
             episode_ave_min_q = 0
             episode_ave_cost = []
-
             ep_t = 0
             ep_finished = False
 
+            # set up episode storage
             s_i = [s_t]
             r_i = []
             a_i = []
+
+            # reset local weights to target weights
+            self.parent.session.run(ops["reset_local_policy_network_params"])
+            self.parent.session.run(ops["reset_local_value_network_params"])
 
             # run an episode
             while not ep_finished:
@@ -124,7 +126,7 @@ class a3c_learner(threading.Thread):
                 'cost':np.mean(episode_ave_cost)
                 }
             self.parent.update_stats_threadsafe(stats, self.tid)
-            print "THREAD:", self.tid, "/ TIME", self.parent.T, "/ TIMESTEP", t, "/ EPSILON", self.parent.epsilon, "/ REWARD", ep_reward, "/ Q_MAX %.4f" % (episode_ave_max_q/float(ep_t))
+            print "THREAD:", self.tid, "/ TIME", self.parent.T, "/ TIMESTEP", t, "/ REWARD", ep_reward, "/ Q_MAX %.4f" % (episode_ave_max_q/float(ep_t))
 
 
 class render_thread(threading.Thread):
