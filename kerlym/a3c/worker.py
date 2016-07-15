@@ -89,6 +89,11 @@ class a3c_learner(threading.Thread):
                 # set R from our value fn approx
                 R = ops["V_values"].eval(session = self.parent.session, feed_dict = {ops["s"] : [s_t]})
 
+
+            # update local thetas from target again (in case it was changed by another worker)
+            self.parent.session.run(ops["reset_local_policy_network_params"])
+            self.parent.session.run(ops["reset_local_value_network_params"])
+
             # Perform updates for each time step
             for t_i in range(ep_t-1,-1,-1):
 
@@ -102,12 +107,11 @@ class a3c_learner(threading.Thread):
                 cost_pi = ops["cost_pi"].eval(session=self.parent.session, feed_dict=fd)
                 episode_ave_cost.append(cost_pi)
 
-                # update policy and value networks
+                # update local policy and value networks
                 self.parent.session.run(ops["grad_update_pi"], feed_dict = fd)
                 self.parent.session.run(ops["grad_update_V"], feed_dict = fd)
 
-
-            # async update of thetas from theta's
+            # async update of target thetas from local thetas
             self.parent.session.run(ops["reset_target_policy_network_params"])
             self.parent.session.run(ops["reset_target_value_network_params"])
 
@@ -126,7 +130,7 @@ class a3c_learner(threading.Thread):
                 'cost':np.mean(episode_ave_cost)
                 }
             self.parent.update_stats_threadsafe(stats, self.tid)
-            print "THREAD:", self.tid, "/ TIME", self.parent.T, "/ TIMESTEP", t, "/ REWARD", ep_reward, "/ Q_MAX %.4f" % (episode_ave_max_q/float(ep_t))
+            print "THREAD:", self.tid, "/ TIME", self.parent.T, "/ TIMESTEP", t, "/ REWARD", ep_reward, "/ POLICY_MIN-MAX (%.4f, %.4f)" % (episode_ave_min_q/float(ep_t), episode_ave_max_q/float(ep_t))
 
 
 class render_thread(threading.Thread):

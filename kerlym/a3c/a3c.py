@@ -3,6 +3,7 @@ import networks
 from gym import envs
 import tensorflow as tf
 import keras.backend as K
+import keras
 import numpy as np
 from worker import *
 from kerlym import preproc
@@ -104,19 +105,20 @@ class A3C:
         a = tf.placeholder("float", [None, self.env[0].action_space.n])
         R = tf.placeholder("float", [None, 1])
         action_pi_values = tf.reduce_sum(tf.mul(pi_values, a), reduction_indices=1)
-        action_V_values = tf.reduce_sum(tf.mul(V_values, a), reduction_indices=1)
 
         # policy network update
-        cost_pi = tf.reduce_mean( K.log( 1 + action_pi_values * (R-action_V_values) ) )
+        cost_pi = K.log( tf.reduce_sum(  action_pi_values ) ) * (R-V_values)
+        #optimizer_pi = keras.optimizers.Adam(self.learning_rate, clipvalue=1e3)
         optimizer_pi = tf.train.AdamOptimizer(self.learning_rate)
         grad_update_pi = optimizer_pi.minimize(cost_pi, var_list=policy_network_params)
+        grad_pi = K.gradients(cost_pi, policy_network_params)
 
         # value network update
-        cost_V = tf.reduce_mean( tf.square( R - action_V_values ) )
+        cost_V = tf.reduce_mean( tf.square( R - V_values ) )
+        #optimizer_V = keras.optimizers.Adam(self.learning_rate, clipvalue=1e3)
         optimizer_V = tf.train.AdamOptimizer(self.learning_rate)
         grad_update_V = optimizer_V.minimize(cost_V, var_list=value_network_params)
-        #grad_update_V = K.function([value_network_params], K.gradients(cost_V, [value_network_params]))
-        #grad_update_V = K.gradients(cost_V, [value_network_params])
+        grad_V = K.gradients(cost_V, value_network_params)
 
         # store variables and update functions for access
         self.graph_ops = {
@@ -132,8 +134,10 @@ class A3C:
                  "a" : a,
                  "grad_update_pi" : grad_update_pi,
                  "cost_pi" : cost_pi,
+                 "grad_pi" : grad_pi,
                  "grad_update_V" : grad_update_V,
-                 "cost_V" : cost_V
+                 "cost_V" : cost_V,
+                 "grad_V" : grad_V
                 }
 
 

@@ -68,5 +68,3 @@ def simple_cnn(agent, env, dropout=0, learning_rate=1e-3, **args):
     value_model.compile(loss='mse', optimizer=RMSprop(lr=learning_rate) )
 
     return state, policy_model, value_model
-
-
