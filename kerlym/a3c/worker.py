@@ -43,8 +43,10 @@ class a3c_learner(threading.Thread):
             if not w == None:
                 print "Update local params from global... "
                 w_p,w_v = w
-                ops["set_w_p"](w_p)
-                ops["set_w_v"](w_v)
+                #ops["set_w_p"](w_p)
+                #ops["set_w_v"](w_v)
+                ops["set_weights_p"](w_p)
+                ops["set_weights_v"](w_v)
 
             # run an episode
             while not ep_finished:

@@ -83,6 +83,10 @@ class A3C:
 
     def setup_graphs(self):
 
+        # update network weights...
+        set_weights_v = lambda x: [value_network_params[i].assign(x[i]) for i in range(len(x))]
+        set_weights_p = lambda x: [policy_network_params[i].assign(x[i]) for i in range(len(x))]
+        
         # Create shared network
         s, policy_network, value_network = self.model_factory(self, self.env[0], **self.kwargs)
         policy_network_params = policy_network.trainable_weights
@@ -109,10 +113,6 @@ class A3C:
         grad_update_V = optimizer_V.minimize(cost_V, var_list=value_network_params)
         grad_V = K.gradients(cost_V, value_network_params)
 
-        # keras fns ...
-#        grad_V = K.function( value_network_params, K.gradients(cost_V, value_network_params) )
-#        grad_pi = K.function( policy_network_params, K.gradients(cost_pi, policy_network_params) )
-
         # store variables and update functions for access
         self.graph_ops = {
                  "R" : R,
@@ -133,8 +133,8 @@ class A3C:
 
                  "w_p" : policy_network.get_weights,
                  "w_v" : value_network.get_weights,
-                 "set_w_p" : policy_network.set_weights,
-                 "set_w_v" : value_network.set_weights,
+                 "set_weights_p" : set_weights_p,
+                 "set_weights_v" : set_weights_v,
                 }
 
 
