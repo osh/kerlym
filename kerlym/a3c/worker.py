@@ -39,8 +39,12 @@ class a3c_learner(threading.Thread):
             a_i = []
 
             # reset local weights to target weights
-            self.parent.session.run(ops["reset_local_policy_network_params"])
-            self.parent.session.run(ops["reset_local_value_network_params"])
+            w = self.parent.global_params.get_weights()
+            if not w == None:
+                print "Update local params from global... "
+                w_p,w_v = w
+                ops["set_w_p"](w_p)
+                ops["set_w_v"](w_v)
 
             # run an episode
             while not ep_finished:
@@ -90,10 +94,8 @@ class a3c_learner(threading.Thread):
                 R = ops["V_values"].eval(session = self.parent.session, feed_dict = {ops["s"] : [s_t]})
 
 
-            # update local thetas from target again (in case it was changed by another worker)
-            self.parent.session.run(ops["reset_local_policy_network_params"])
-            self.parent.session.run(ops["reset_local_value_network_params"])
-
+            (grad_p,grad_v) = (None,None)
+    
             # Perform updates for each time step
             for t_i in range(ep_t-1,-1,-1):
 
@@ -107,13 +109,11 @@ class a3c_learner(threading.Thread):
                 cost_pi = ops["cost_pi"].eval(session=self.parent.session, feed_dict=fd)
                 episode_ave_cost.append(cost_pi)
 
-                # update local policy and value networks
-                self.parent.session.run(ops["grad_update_pi"], feed_dict = fd)
-                self.parent.session.run(ops["grad_update_V"], feed_dict = fd)
+            # Perform async gradient update
+            w_p = ops["w_p"]()
+            w_v = ops["w_v"]()
 
-            # async update of target thetas from local thetas
-            self.parent.session.run(ops["reset_target_policy_network_params"])
-            self.parent.session.run(ops["reset_target_value_network_params"])
+            self.parent.global_params.update( ( (w_p,w_v),(grad_p,grad_v) ) )
 
             # Save model progress
             if n_ep % self.parent.checkpoint_interval == 0 and self.tid == 0:

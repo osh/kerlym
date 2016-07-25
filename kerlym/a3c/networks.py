@@ -12,33 +12,6 @@ import tensorflow as tf
 
 # Some example networks which can be used as the Q function approximation ...
 
-def simple_dnn(agent, env, dropout=0.5, **args):
-  with tf.device("/cpu:0"):
-    state = tf.placeholder('float', [None, agent.input_dim])
-    S = Input(shape=[agent.input_dim])
-    h = Dense(256, activation='relu', init='he_normal')(S)
-#    h = Dropout(dropout)(h)
-    h = Dense(256, activation='relu', init='he_normal')(h)
-#    h = Dropout(dropout)(h)
-    V = Dense(env.action_space.n, activation='linear',init='zero')(h)
-    model = Model(S,V)
-    return state, model
-
-def simple_rnn(agent, env, dropout=0, h0_width=8, h1_width=8, **args):
-  with tf.device("/cpu:0"):
-    state = tf.placeholder('float', [None, agent.input_dim])
-    S = Input(shape=[agent.input_dim])
-    h = Reshape([agent.nframes, agent.input_dim/agent.nframes])(S)
-    h = TimeDistributed(Dense(h0_width, activation='relu', init='he_normal'))(h)
-    h = Dropout(dropout)(h)
-    h = LSTM(h1_width, return_sequences=True)(h)
-    h = Dropout(dropout)(h)
-    h = LSTM(h1_width)(h)
-    h = Dropout(dropout)(h)
-    V = Dense(env.action_space.n, activation='linear',init='zero')(h)
-    model = Model(S,V)
-    return model
-
 def simple_cnn(agent, env, dropout=0, learning_rate=1e-3, **args):
   with tf.device("/cpu:0"):
     state = tf.placeholder('float', [None, agent.input_dim])

@@ -10,6 +10,7 @@ from kerlym import preproc
 from kerlym.statbin import statbin
 import matplotlib.pyplot as plt
 import Queue
+import global_params
 
 class A3C:
     def __init__(self, experiment="Breakout-v0", env=None, nthreads=16, nframes=1, epsilon=0.5,
@@ -46,6 +47,7 @@ class A3C:
         self.next_plot = 0
         self.e = 0
         self.render = render
+        self.global_params = global_params.global_params()
 
         self.render_rate_hz = 5.0
         self.render_ngames = 2
@@ -88,19 +90,6 @@ class A3C:
         pi_values = policy_network(s)
         V_values = value_network(s)
 
-        # Create shared target network
-        st, target_policy_network, target_value_network = self.model_factory(self, self.env[0])
-        target_policy_network_params = target_policy_network.trainable_weights
-        target_value_network_params = target_value_network.trainable_weights
-        target_pi_values = target_policy_network(st)
-        target_V_values = target_value_network(st)
-
-        # Op for periodically updating target network with online network weights
-        reset_local_policy_network_params = [policy_network_params[i].assign(target_policy_network_params[i]) for i in range(len(policy_network_params))]
-        reset_local_value_network_params = [value_network_params[i].assign(target_value_network_params[i]) for i in range(len(value_network_params))]
-        reset_target_policy_network_params = [target_policy_network_params[i].assign(policy_network_params[i]) for i in range(len(target_policy_network_params))]
-        reset_target_value_network_params = [target_value_network_params[i].assign(value_network_params[i]) for i in range(len(target_value_network_params))]
-
         # Define A3C cost and gradient update equations
         a = tf.placeholder("float", [None, self.env[0].action_space.n])
         R = tf.placeholder("float", [None, 1])
@@ -126,27 +115,29 @@ class A3C:
                  "s" : s,
                  "pi_values" : pi_values,
                  "V_values" : V_values,
-                 "st" : st,
-                 "reset_target_policy_network_params" : reset_target_policy_network_params,
-                 "reset_target_value_network_params" : reset_target_value_network_params,
-                 "reset_local_policy_network_params" : reset_local_policy_network_params,
-                 "reset_local_value_network_params" : reset_local_value_network_params,
                  "a" : a,
                  "grad_update_pi" : grad_update_pi,
                  "cost_pi" : cost_pi,
                  "grad_pi" : grad_pi,
                  "grad_update_V" : grad_update_V,
                  "cost_V" : cost_V,
-                 "grad_V" : grad_V
+                 "grad_V" : grad_V,
+
+                 "w_p" : policy_network.get_weights,
+                 "w_v" : value_network.get_weights,
+                 "set_w_p" : policy_network.set_weights,
+                 "set_w_v" : value_network.set_weights,
                 }
 
 
     def train(self):
         # Initialize target network weights
-        self.session.run(self.graph_ops["reset_target_policy_network_params"])
-        self.session.run(self.graph_ops["reset_target_value_network_params"])
         self.session.run(tf.initialize_all_variables())
         threads = map(lambda tid: a3c_learner(self, tid), range(0,self.nthreads))
+
+        # start global params thread
+        self.global_params.start()
+
         # start actor-learners
         for t in threads:
             t.start()
@@ -174,6 +165,10 @@ class A3C:
         if self.enable_plots:
             self.pt.done = True
             self.pt.join()
+
+        # stop global params thread
+        self.global_params.finished = Ture
+        self.global_params.join()
 
 
     def prepare_obs(self, obs):
