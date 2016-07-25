@@ -20,7 +20,7 @@ class global_params(threading.Thread):
 
     def get_weights(self):
         self.weight_lock.acquire()
-        w = self.weights
+        w = copy.copy(self.weights)
         self.weight_lock.release()
         return w
         
@@ -39,7 +39,7 @@ class global_params(threading.Thread):
 
                 # set weights if its empty
                 if self.weights == None:
-                    self.weights = wts
+                    self.weights = copy.copy(wts)
 
                     # initialize momentum with zeros of weight shape ..
                     self.g = copy.copy(self.weights)

@@ -95,6 +95,8 @@ class a3c_learner(threading.Thread):
 
 
             (grad_p,grad_v) = ([], [])
+            w_p = ops["w_p"]()
+            w_v = ops["w_v"]()
     
             # Perform updates for each time step
             for t_i in range(ep_t-1,-1,-1):
@@ -108,6 +110,13 @@ class a3c_learner(threading.Thread):
                 # compute costs for observation
                 cost_pi = ops["cost_pi"].eval(session=self.parent.session, feed_dict=fd)
                 episode_ave_cost.append(cost_pi)
+
+#                print R.shape, s.shape, a.shape
+##                print dir(ops["grad_pi"])
+#                print map(lambda x: x.name, ops["grad_pi"].inputs)
+##                print dir(ops["grad_pi"].inputs[0])
+#                grad_pi = ops["grad_pi"](inputs=w_p)
+#                grad_v = ops["grad_V"](inputs=[R, s, a] )
 
                 # accumulate value network gradients
                 for i,gv in enumerate(ops["grad_V"]):
@@ -125,9 +134,6 @@ class a3c_learner(threading.Thread):
                     else:
                         grad_p[i] += gp_i
        
-            # Perform async gradient update
-            w_p = ops["w_p"]()
-            w_v = ops["w_v"]()
 
             self.parent.global_params.update( ( (w_p,w_v),(grad_p,grad_v) ) )
 
