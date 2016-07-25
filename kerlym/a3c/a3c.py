@@ -109,6 +109,13 @@ class A3C:
         grad_update_V = optimizer_V.minimize(cost_V, var_list=value_network_params)
         grad_V = K.gradients(cost_V, value_network_params)
 
+
+        # keras fns ...
+#        grad_V = K.function( value_network_params, K.gradients(cost_V, value_network_params) )
+#        grad_pi = K.function( policy_network_params, K.gradients(cost_V, policy_network_params) )
+#        fn = K.function([X], K.gradients(Y, [X])) #function to call the gradient
+
+
         # store variables and update functions for access
         self.graph_ops = {
                  "R" : R,
@@ -116,9 +123,13 @@ class A3C:
                  "pi_values" : pi_values,
                  "V_values" : V_values,
                  "a" : a,
+
+                 # policy network 
                  "grad_update_pi" : grad_update_pi,
                  "cost_pi" : cost_pi,
                  "grad_pi" : grad_pi,
+
+                 # value network 
                  "grad_update_V" : grad_update_V,
                  "cost_V" : cost_V,
                  "grad_V" : grad_V,
@@ -167,7 +178,7 @@ class A3C:
             self.pt.join()
 
         # stop global params thread
-        self.global_params.finished = Ture
+        self.global_params.finished = True
         self.global_params.join()
 
 

@@ -41,7 +41,7 @@ class global_params(threading.Thread):
                 if self.weights == None:
                     self.weights = wts
 
-                    # initialize momentum
+                    # initialize momentum with zeros of weight shape ..
                     self.g = copy.copy(self.weights)
                     for g_ in self.g:
                         for g__ in g_:
@@ -53,9 +53,10 @@ class global_params(threading.Thread):
                 epsilon = 1e-3
 
                 # perform grad update with Shared RMSProp
-                for i in range(0,len(self.g)):
-                    g[i] = alpha*self.g[i] + (1-alpha)*np.power(grad,2)                              # (S2)
-                    self.weights[i] = self.weights[i] - lr * grad / np.sqrt(self.g[i] + epsilon)     # (S3) 
+                for netidx in [0,1]:
+                    for i in range(0,len(self.g[netidx])):
+                        self.g[netidx][i] = alpha*self.g[netidx][i] + (1.0-alpha)*np.power(grad[netidx][i],2)                              # (S2)
+                        self.weights[netidx][i] = self.weights[netidx][i] - lr * grad[netidx][i] / np.sqrt(self.g[netidx][i] + epsilon)     # (S3) 
 
 #            except:
 #                # timeout condition
