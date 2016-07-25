@@ -55,8 +55,12 @@ class global_params(threading.Thread):
                 # perform grad update with Shared RMSProp
                 for netidx in [0,1]:
                     for i in range(0,len(self.g[netidx])):
-                        self.g[netidx][i] = alpha*self.g[netidx][i] + (1.0-alpha)*np.power(grad[netidx][i],2)                              # (S2)
-                        self.weights[netidx][i] = self.weights[netidx][i] - lr * grad[netidx][i] / np.sqrt(self.g[netidx][i] + epsilon)     # (S3) 
+                        # gradient clipping to keep it finite ...
+                        grad_i = np.clip( grad[netidx][i], -1e3, 1e3 )
+                        # update momentum based on L2 norm of gradients
+                        self.g[netidx][i] = alpha*self.g[netidx][i] + (1.0-alpha)*np.power(grad_i,2)                            # (S2)
+                        # update weights based on gradients and momentum
+                        self.weights[netidx][i] = self.weights[netidx][i] - lr * grad_i / np.sqrt(self.g[netidx][i] + epsilon)  # (S3) 
 
 #            except:
 #                # timeout condition
