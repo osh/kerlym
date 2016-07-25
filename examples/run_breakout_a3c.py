@@ -8,5 +8,5 @@ kerlym --env Breakout-v0 \
        --render \
        --plots \
        --plot_rate 10 \
-       --concurrency 3
+       --concurrency 16
 
