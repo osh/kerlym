@@ -1,16 +1,82 @@
-#!/usr/bin/env python
+from logging import getLogger
+import os,copy,time
 import networks
-from gym import envs
-import tensorflow as tf
-import keras.backend as K
-import keras
 import numpy as np
-from worker import *
+import chainer
+from chainer import serializers
+from chainer import functions as F
 from kerlym import preproc
-from kerlym.statbin import statbin
-import matplotlib.pyplot as plt
-import Queue
-import global_params
+import copy_param
+import multiprocessing as mp
+from prepare_output_dir import prepare_output_dir
+import dqn_head,policy,v_function,rmsprop_async,async
+from init_like_torch import init_like_torch
+logger = getLogger(__name__)
+
+class A3CModel(chainer.Link):
+
+    def pi_and_v(self, state, keep_same_state=False):
+        raise NotImplementedError()
+
+    def reset_state(self):
+        pass
+
+    def unchain_backward(self):
+        pass
+
+
+
+def phi(obs):
+    resized = cv2.resize(obs.image_buffer, (84, 84))
+    return resized.transpose(2, 0, 1).astype(np.float32) / 255
+
+
+class A3CFF(chainer.ChainList, A3CModel):
+
+    def __init__(self, n_actions):
+        self.head = dqn_head.NIPSDQNHead(n_input_channels=3)
+        self.pi = policy.FCSoftmaxPolicy(
+            self.head.n_output_channels, n_actions)
+        self.v = v_function.FCVFunction(self.head.n_output_channels)
+        chainer.ChainList.__init__(self, self.head, self.pi, self.v)
+        #super().__init__(self.head, self.pi, self.v)
+        init_like_torch(self)
+
+    def pi_and_v(self, state, keep_same_state=False):
+        out = self.head(state)
+        return self.pi(out), self.v(out)
+
+
+class A3CLSTM(chainer.ChainList, A3CModel):
+
+    def __init__(self, n_actions):
+        self.head = dqn_head.NIPSDQNHead(n_input_channels=3)
+        self.pi = policy.FCSoftmaxPolicy(
+            self.head.n_output_channels, n_actions)
+        self.v = v_function.FCVFunction(self.head.n_output_channels)
+        self.lstm = L.LSTM(self.head.n_output_channels,
+                           self.head.n_output_channels)
+        super().__init__(self.head, self.lstm, self.pi, self.v)
+        init_like_torch(self)
+
+    def pi_and_v(self, state, keep_same_state=False):
+        out = self.head(state)
+        if keep_same_state:
+            prev_h, prev_c = self.lstm.h, self.lstm.c
+            out = self.lstm(out)
+            self.lstm.h, self.lstm.c = prev_h, prev_c
+        else:
+            out = self.lstm(out)
+        return self.pi(out), self.v(out)
+
+    def reset_state(self):
+        self.lstm.reset_state()
+
+    def unchain_backward(self):
+        self.lstm.h.unchain_backward()
+        self.lstm.c.unchain_backward()
+
+
 
 class A3C:
     def __init__(self, experiment="Breakout-v0", env=None, nthreads=16, nframes=1, epsilon=0.5,
@@ -20,232 +86,353 @@ class A3C:
             batch_size = 32, epsilon_min=0.05, epsilon_schedule=None,
             stats_rate = 10,
             **kwargs ):
-        self.kwargs = kwargs
-        self.experiment = experiment
-        if env==None:
-            env=lambda: envs.make(self.experiment)
-        self.nthreads = nthreads
-        self.env = map(lambda x: env(), range(0, self.nthreads))
-        self.model_factory = modelfactory
-        self.nframes = nframes
-        self.learning_rate = learning_rate
-        self.epsilon = epsilon
-        self.epsilon_min = epsilon_min
-        self.epsilon_schedule = epsilon_schedule
-        self.gamma = discount
-        self.preprocessor = preprocessor
-        self.difference_obs = difference_obs
-        self.network_update_frequency = batch_size
-        self.target_network_update_frequency = 10000
-        self.T = 0
-        self.TMAX = 80000000
-        self.checkpoint_interval = 10
-        self.checkpoint_dir = "/tmp/"
-        self.enable_plots = enable_plots
-        self.stats_rate = stats_rate
-        self.ipy_clear = False
-        self.next_plot = 0
-        self.e = 0
-        self.render = render
-        self.global_params = global_params.global_params()
 
-        self.render_rate_hz = 5.0
-        self.render_ngames = 2
-        self.plot_q = Queue.Queue()
-
-        # set up output shape to be either pre-processed or not
-        if not self.preprocessor == None:
-            print self.env[0].observation_space.shape
-            o = self.preprocessor(np.zeros( self.env[0].observation_space.shape ) )
-            self.input_dim_orig = [self.nframes]+list(o.shape)
-        else:
-            self.input_dim_orig = [self.nframes]+list(self.env[0].observation_space.shape)
-        self.input_dim = np.product( self.input_dim_orig )
-        print self.input_dim, self.input_dim_orig
-
-        # set up plotting storage
-        self.stats = None
-        if self.enable_plots:
-            self.stats = {
-                "tr":statbin(self.stats_rate),     # Total Reward
-                "ft":statbin(self.stats_rate),     # Finishing Time
-                "minvf":statbin(self.stats_rate),  # Min Value Fn
-                "maxvf":statbin(self.stats_rate),  # Min Value Fn
-                "cost":statbin(self.stats_rate),   # Loss
-            }
-
-        # set up the TF session
-        self.session = tf.Session()
-        K.set_session(self.session)
-        self.setup_graphs()
-        self.saver = tf.train.Saver()
-
-
-    def setup_graphs(self):
-
-        # update network weights...
-        set_weights_v = lambda x: [value_network_params[i].assign(x[i]) for i in range(len(x))]
-        set_weights_p = lambda x: [policy_network_params[i].assign(x[i]) for i in range(len(x))]
-        
-        # Create shared network
-        s, policy_network, value_network = self.model_factory(self, self.env[0], **self.kwargs)
-        policy_network_params = policy_network.trainable_weights
-        value_network_params = value_network.trainable_weights
-        pi_values = policy_network(s)
-        V_values = value_network(s)
-
-        # Define A3C cost and gradient update equations
-        a = tf.placeholder("float", [None, self.env[0].action_space.n])
-        R = tf.placeholder("float", [None, 1])
-        action_pi_values = tf.reduce_sum(tf.mul(pi_values, a), reduction_indices=1)
-
-        # policy network update
-        cost_pi = -K.log( tf.reduce_sum(  action_pi_values ) ) * (R-V_values)
-        #optimizer_pi = keras.optimizers.Adam(self.learning_rate, clipvalue=1e3)
-        optimizer_pi = tf.train.RMSPropOptimizer(self.learning_rate)
-        grad_update_pi = optimizer_pi.minimize(cost_pi, var_list=policy_network_params)
-        grad_pi = K.gradients(cost_pi, policy_network_params)
-
-        # value network update
-        cost_V = tf.reduce_mean( tf.square( R - V_values ) )
-        #optimizer_V = keras.optimizers.Adam(self.learning_rate, clipvalue=1e3)
-        optimizer_V = tf.train.RMSPropOptimizer(self.learning_rate)
-        grad_update_V = optimizer_V.minimize(cost_V, var_list=value_network_params)
-        grad_V = K.gradients(cost_V, value_network_params)
-
-        # store variables and update functions for access
-        self.graph_ops = {
-                 "R" : R,
-                 "s" : s,
-                 "pi_values" : pi_values,
-                 "V_values" : V_values,
-                 "a" : a,
-
-                 # policy network 
-                 "grad_update_pi" : grad_update_pi,
-                 "cost_pi" : cost_pi,
-                 "grad_pi" : grad_pi,
-
-                 # value network 
-                 "grad_update_V" : grad_update_V,
-                 "cost_V" : cost_V,
-                 "grad_V" : grad_V,
-
-                 "w_p" : policy_network.get_weights,
-                 "w_v" : value_network.get_weights,
-                 "set_weights_p" : set_weights_p,
-                 "set_weights_v" : set_weights_v,
-                }
+        print "A3C ..."
 
 
     def train(self):
-        # Initialize target network weights
-        self.session.run(tf.initialize_all_variables())
-        threads = map(lambda tid: a3c_learner(self, tid), range(0,self.nthreads))
+        seed = None
+        lr = 7e-4
+        window_visible = False
+        scenario = 'basic'
+        use_lstm = False
+        t_max = 5
+        processes = 8
+        beta = 1e-2
+        profile = False
+        steps = 8*10**7
+        eval_frequency = 10**5
+        eval_n_runs = 10
 
-        # start global params thread
-        self.global_params.start()
+        if seed is not None:
+            random_seed.set_random_seed(seed)
+    
+        # Simultaneously launching multiple vizdoom processes makes program stuck,
+        # so use the global lock
+        env_lock = mp.Lock()
+    
+        def make_env(process_idx, test):
+            with env_lock:
+                return doom_env.DoomEnv(window_visible=window_visible,
+                                        scenario=scenario)
 
-        # start actor-learners
-        for t in threads:
-            t.start()
+        n_actions = 3
 
-        # Start rendering
-        if self.render:
-            self.rt = render_thread(self.render_rate_hz, self.env[0:self.render_ngames] )
-            self.rt.start()
+        def model_opt():
+            if use_lstm:
+                model = A3CLSTM(n_actions)
+            else:
+                model = A3CFF(n_actions)
+            opt = rmsprop_async.RMSpropAsync(lr=lr, eps=1e-1, alpha=0.99)
+            opt.setup(model)
+            opt.add_hook(chainer.optimizer.GradientClipping(40))
+            return model, opt
+    
+        self.run_a3c(processes, make_env, model_opt, phi, t_max=t_max,
+                    beta=beta, profile=profile, steps=steps,
+                    eval_frequency=eval_frequency,
+                    eval_n_runs=eval_n_runs, args={})
 
-        # Start plotting
-        if self.enable_plots:
-            self.pt = plotter_thread(self)
-            self.pt.start()
+        print "Train"
 
-        print "Waiting for threads to finish..."
-        for t in threads:
-            t.join()
+    def train_loop(self, process_idx, counter, make_env, max_score, args, agent, env,
+               start_time, outdir):
+        try:
+    
+            total_r = 0
+            episode_r = 0
+            global_t = 0
+            local_t = 0
+            obs = env.reset()
+            r = 0
+            done = False
+    
+            while True:
+    
+                # Get and increment the global counter
+                with counter.get_lock():
+                    counter.value += 1
+                    global_t = counter.value
+                local_t += 1
 
-        # Shut down rendering
-        if self.render:
-            self.rt.done = True
-            self.rt.join()
+                if global_t > args.steps:
+                    break
 
-        # Shut down plotting
-        if self.enable_plots:
-            self.pt.done = True
-            self.pt.join()
+                agent.optimizer.lr = (
+                    args.steps - global_t - 1) / args.steps * args.lr
 
-        # stop global params thread
-        self.global_params.finished = True
-        self.global_params.join()
+                total_r += r
+                episode_r += r
+
+                a = agent.act(obs, r, done)
+
+                if done:
+                    if process_idx == 0:
+                        print('{} global_t:{} local_t:{} lr:{} r:{}'.format(
+                            outdir, global_t, local_t, agent.optimizer.lr,
+                            episode_r))
+                    episode_r = 0
+                    obs = env.reset()
+                    r = 0
+                    done = False
+                else:
+                    obs, r, done, info = env.step(a)
+    
+                if global_t % args.eval_frequency == 0:
+                    # Evaluation
+    
+                    # We must use a copy of the model because test runs can change
+                    # the hidden states of the model
+                    test_model = copy.deepcopy(agent.model)
+                    test_model.reset_state()
+    
+                    mean, median, stdev = eval_performance(
+                        process_idx, make_env, test_model, agent.phi,
+                        args.eval_n_runs)
+                    #with open(os.path.join(outdir, 'scores.txt'), 'a+') as f:
+                    #    elapsed = time.time() - start_time
+                    #    record = (global_t, elapsed, mean, median, stdev)
+                    #    print('\t'.join(str(x) for x in record), file=f)
+                    #with max_score.get_lock():
+                    #    if mean > max_score.value:
+                    #        # Save the best model so far
+                    #        print('The best score is updated {} -> {}'.format(
+                    #            max_score.value, mean))
+                    #        filename = os.path.join(
+                    #            outdir, '{}.h5'.format(global_t))
+                    #        agent.save_model(filename)
+                    #        print('Saved the current best model to {}'.format(
+                    #            filename))
+                    #        max_score.value = mean
+
+        except KeyboardInterrupt:
+            if process_idx == 0:
+                # Save the current model before being killed
+                agent.save_model(os.path.join(
+                    outdir, '{}_keyboardinterrupt.h5'.format(global_t)))
+                #print('Saved the current model to {}'.format(
+                #    outdir), file=sys.stderr)
+            raise
+
+        if global_t == args.steps + 1:
+            # Save the final model
+            agent.save_model(
+                os.path.join(args.outdir, '{}_finish.h5'.format(args.steps)))
+            print('Saved the final model to {}'.format(args.outdir))
 
 
-    def prepare_obs(self, obs):
-        if not self.preprocessor == None:
-            obs = self.preprocessor(obs)
-        return obs
+    def train_loop_with_profile(self, process_idx, counter, make_env, max_score, args,
+                            agent, env, start_time, outdir):
+        import cProfile
+        cmd = 'train_loop(process_idx, counter, make_env, max_score, args, ' \
+            'agent, env, start_time)'
+        cProfile.runctx(cmd, globals(), locals(),
+                        'profile-{}.out'.format(os.getpid()))
 
-    def diff_obs(self, obs, last_obs=None):
-        if self.difference_obs and not type(last_obs) == type(None):
-            obs = obs - last_obs
-        return obs
 
-    def update_epsilon(self):
-        if not self.epsilon_schedule == None:
-            self.epsilon = max(self.epsilon_min,
-                               self.epsilon_schedule(self.T, self.epsilon))
+    def run_a3c(self, processes, make_env, model_opt, phi, t_max=1, beta=1e-2,
+                profile=False, steps=8 * 10 ** 7, eval_frequency=10 ** 6,
+                eval_n_runs=10, args={}):
+    
+        # Prevent numpy from using multiple threads
+        os.environ['OMP_NUM_THREADS'] = '1'
 
-    def update_stats_threadsafe(self, stats, tid=0):
-        if self.enable_plots:
-            self.plot_q.put(stats)
+        outdir = prepare_output_dir(args, None)
+    
+        print('Output files are saved in {}'.format(outdir))
+    
+        n_actions = 20 * 20
+    
+        model, opt = model_opt()
+    
+        shared_params = async.share_params_as_shared_arrays(model)
+        shared_states = async.share_states_as_shared_arrays(opt)
 
-    def update_stats(self, stats, tid=0):
-        self.e += 1
-        # update stats store
-        for k in stats.keys():
-            self.stats[k].add( stats[k] )
+        max_score = mp.Value('f', np.finfo(np.float32).min)
+        counter = mp.Value('l', 0)
+        start_time = time.time()
+    
+        # Write a header line first
+        with open(os.path.join(outdir, 'scores.txt'), 'a+') as f:
+            column_names = ('steps', 'elapsed', 'mean', 'median', 'stdev')
+#            print('\t'.join(column_names), file=f)
 
-        # only plot from thread 0
-        if self.stats == None or tid > 0:
-            return
+        def run_func(process_idx):
+            env = make_env(process_idx, test=False)
+            model, opt = model_opt()
+            async.set_shared_params(model, shared_params)
+            async.set_shared_states(opt, shared_states)
+    
+            agent = a3c.A3C(model, opt, t_max, 0.99, beta=beta,
+                        process_idx=process_idx, phi=phi)
 
-        # plot if its time
-        if(self.e >= self.next_plot):
-            self.next_plot = self.e + self.stats_rate
-            if self.ipy_clear:
-                from IPython import display
-                display.clear_output(wait=True)
-            fig = plt.figure(1)
-            fig.canvas.set_window_title("A3C Training Stats for %s"%(self.experiment))
-            plt.clf()
-            plt.subplot(2,2,1)
-            self.stats["tr"].plot()
-            plt.title("Total Reward per Episode")
-            plt.xlabel("Episode")
-            plt.ylabel("Total Reward")
-            plt.legend(loc=2)
-            plt.subplot(2,2,2)
-            self.stats["ft"].plot()
-            plt.title("Finishing Time per Episode")
-            plt.xlabel("Episode")
-            plt.ylabel("Finishing Time")
-            plt.legend(loc=2)
-            plt.subplot(2,2,3)
-            self.stats["maxvf"].plot2(fill_col='lightblue', label='Avg Max VF')
-            self.stats["minvf"].plot2(fill_col='slategrey', label='Avg Min VF')
-            plt.title("Value Function Outputs")
-            plt.xlabel("Episode")
-            plt.ylabel("Value Fn")
-            plt.legend(loc=2)
-            ax = plt.subplot(2,2,4)
-            self.stats["cost"].plot2()
-            plt.title("Training Loss")
-            plt.xlabel("Training Epoch")
-            plt.ylabel("Loss")
-            try:
-#                ax.set_yscale("log", nonposy='clip')
-                plt.tight_layout()
-            except:
-                pass
-            plt.show(block=False)
-            plt.draw()
-            plt.pause(0.001)
+            if profile:
+                train_loop_with_profile(process_idx, counter, make_env, max_score,
+                                    args, agent, env, start_time,
+                                    outdir=outdir)
+            else:
+                train_loop(process_idx, counter, make_env, max_score,
+                           args, agent, env, start_time, outdir=outdir)
+    
+        async.run_async(processes, run_func)
+
+
+class A3C_context(object):
+    """A3C: Asynchronous Advantage Actor-Critic.
+
+    See http://arxiv.org/abs/1602.01783
+    """
+
+    def __init__(self, model, optimizer, t_max, gamma, beta=1e-2,
+                 process_idx=0, clip_reward=True, phi=lambda x: x,
+                 pi_loss_coef=1.0, v_loss_coef=0.5,
+                 keep_loss_scale_same=False):
+
+        # Globally shared model
+        self.shared_model = model
+
+        # Thread specific model
+        self.model = copy.deepcopy(self.shared_model)
+
+        self.optimizer = optimizer
+        self.t_max = t_max
+        self.gamma = gamma
+        self.beta = beta
+        self.process_idx = process_idx
+        self.clip_reward = clip_reward
+        self.phi = phi
+        self.pi_loss_coef = pi_loss_coef
+        self.v_loss_coef = v_loss_coef
+        self.keep_loss_scale_same = keep_loss_scale_same
+
+        self.t = 0
+        self.t_start = 0
+        self.past_action_log_prob = {}
+        self.past_action_entropy = {}
+        self.past_states = {}
+        self.past_rewards = {}
+        self.past_values = {}
+
+    def sync_parameters(self):
+        copy_param.copy_param(target_link=self.model,
+                              source_link=self.shared_model)
+
+    def act(self, state, reward, is_state_terminal):
+
+        if self.clip_reward:
+            reward = np.clip(reward, -1, 1)
+
+        if not is_state_terminal:
+            statevar = chainer.Variable(np.expand_dims(self.phi(state), 0))
+
+        self.past_rewards[self.t - 1] = reward
+
+        if (is_state_terminal and self.t_start < self.t) \
+                or self.t - self.t_start == self.t_max:
+
+            assert self.t_start < self.t
+
+            if is_state_terminal:
+                R = 0
+            else:
+                _, vout = self.model.pi_and_v(statevar, keep_same_state=True)
+                R = float(vout.data)
+
+            pi_loss = 0
+            v_loss = 0
+            for i in reversed(range(self.t_start, self.t)):
+                R *= self.gamma
+                R += self.past_rewards[i]
+                v = self.past_values[i]
+                if self.process_idx == 0:
+                    logger.debug('s:%s v:%s R:%s',
+                                 self.past_states[i].data.sum(), v.data, R)
+                advantage = R - v
+                # Accumulate gradients of policy
+                log_prob = self.past_action_log_prob[i]
+                entropy = self.past_action_entropy[i]
+
+                # Log probability is increased proportionally to advantage
+                pi_loss -= log_prob * float(advantage.data)
+                # Entropy is maximized
+                pi_loss -= self.beta * entropy
+                # Accumulate gradients of value function
+
+                v_loss += (v - R) ** 2 / 2
+
+            if self.pi_loss_coef != 1.0:
+                pi_loss *= self.pi_loss_coef
+
+            if self.v_loss_coef != 1.0:
+                v_loss *= self.v_loss_coef
+
+            # Normalize the loss of sequences truncated by terminal states
+            if self.keep_loss_scale_same and \
+                    self.t - self.t_start < self.t_max:
+                factor = self.t_max / (self.t - self.t_start)
+                pi_loss *= factor
+                v_loss *= factor
+
+            if self.process_idx == 0:
+                logger.debug('pi_loss:%s v_loss:%s', pi_loss.data, v_loss.data)
+
+            total_loss = pi_loss + F.reshape(v_loss, pi_loss.data.shape)
+
+            # Compute gradients using thread-specific model
+            self.model.zerograds()
+            total_loss.backward()
+            # Copy the gradients to the globally shared model
+            self.shared_model.zerograds()
+            copy_param.copy_grad(
+                target_link=self.shared_model, source_link=self.model)
+            # Update the globally shared model
+            if self.process_idx == 0:
+                norm = self.optimizer.compute_grads_norm()
+                logger.debug('grad norm:%s', norm)
+            self.optimizer.update()
+            if self.process_idx == 0:
+                logger.debug('update')
+
+            self.sync_parameters()
+            self.model.unchain_backward()
+
+            self.past_action_log_prob = {}
+            self.past_action_entropy = {}
+            self.past_states = {}
+            self.past_rewards = {}
+            self.past_values = {}
+
+            self.t_start = self.t
+
+        if not is_state_terminal:
+            self.past_states[self.t] = statevar
+            pout, vout = self.model.pi_and_v(statevar)
+            self.past_action_log_prob[self.t] = pout.sampled_actions_log_probs
+            self.past_action_entropy[self.t] = pout.entropy
+            self.past_values[self.t] = vout
+            self.t += 1
+            if self.process_idx == 0:
+                logger.debug('t:%s entropy:%s, probs:%s',
+                             self.t, pout.entropy.data, pout.probs.data)
+            return pout.action_indices[0]
+        else:
+            self.model.reset_state()
+            return None
+
+    def load_model(self, model_filename):
+        """Load a network model form a file
+        """
+        serializers.load_hdf5(model_filename, self.model)
+        copy_param.copy_param(target_link=self.model,
+                              source_link=self.shared_model)
+        opt_filename = model_filename + '.opt'
+        if os.path.exists(opt_filename):
+            print('WARNING: {0} was not found, so loaded only a model'.format(
+                opt_filename))
+            serializers.load_hdf5(model_filename + '.opt', self.optimizer)
+
+    def save_model(self, model_filename):
+        """Save a network model to a file
+        """
+        serializers.save_hdf5(model_filename, self.model)
+        serializers.save_hdf5(model_filename + '.opt', self.optimizer)
