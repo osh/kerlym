@@ -71,10 +71,11 @@ or
 
 ```python
 from gym import envs
-env = envs.make("SpaceInvaders-v0")
+env = lambda: envs.make("SpaceInvaders-v0")
 
 import kerlym
-agent = kerlym.agents.dqn.DQN(env, 
+agent = kerlym.agents.DQN(
+                    env=env, 
                     nframes=1, 
                     epsilon=0.5, 
                     discount=0.99, 
@@ -84,7 +85,7 @@ agent = kerlym.agents.dqn.DQN(env,
                     enable_plots = True, 
                     epsilon_schedule=lambda episode,epsilon: max(0.1, epsilon*(1-1e-4)),                
                     dufference_obs = True,
-                    preprocessor = kerlym.perproc.karpathy_preproc,
+                    preprocessor = kerlym.preproc.karpathy_preproc,
                     learning_rate = 1e-4
                     )
 agent.learn()
