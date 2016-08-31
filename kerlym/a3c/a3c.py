@@ -88,7 +88,9 @@ class A3C:
             **kwargs ):
 
         print "A3C ..."
-
+        if env == None:
+            env = lambda: envs.make(self.experiment)
+        self.env = env
 
     def train(self):
         seed = None
@@ -113,8 +115,7 @@ class A3C:
     
         def make_env(process_idx, test):
             with env_lock:
-                return doom_env.DoomEnv(window_visible=window_visible,
-                                        scenario=scenario)
+                return self.env()
 
         n_actions = 3
 
@@ -129,14 +130,14 @@ class A3C:
             return model, opt
     
         self.run_a3c(processes, make_env, model_opt, phi, t_max=t_max,
-                    beta=beta, profile=profile, steps=steps,
+                    beta=beta, profile=profile, steps=steps, lr=lr,
                     eval_frequency=eval_frequency,
                     eval_n_runs=eval_n_runs, args={})
 
         print "Train"
 
     def train_loop(self, process_idx, counter, make_env, max_score, args, agent, env,
-               start_time, outdir):
+               start_time, outdir, lr, steps):
         try:
     
             total_r = 0
@@ -155,11 +156,11 @@ class A3C:
                     global_t = counter.value
                 local_t += 1
 
-                if global_t > args.steps:
+                if global_t > steps:
                     break
 
                 agent.optimizer.lr = (
-                    args.steps - global_t - 1) / args.steps * args.lr
+                    steps - global_t - 1) / steps * lr
 
                 total_r += r
                 episode_r += r
@@ -232,7 +233,7 @@ class A3C:
 
     def run_a3c(self, processes, make_env, model_opt, phi, t_max=1, beta=1e-2,
                 profile=False, steps=8 * 10 ** 7, eval_frequency=10 ** 6,
-                eval_n_runs=10, args={}):
+                eval_n_runs=10, args={}, lr=7e-4):
     
         # Prevent numpy from using multiple threads
         os.environ['OMP_NUM_THREADS'] = '1'
@@ -263,16 +264,16 @@ class A3C:
             async.set_shared_params(model, shared_params)
             async.set_shared_states(opt, shared_states)
     
-            agent = a3c.A3C(model, opt, t_max, 0.99, beta=beta,
+            agent = A3C_context(model, opt, t_max, 0.99, beta=beta,
                         process_idx=process_idx, phi=phi)
 
             if profile:
-                train_loop_with_profile(process_idx, counter, make_env, max_score,
+                self.train_loop_with_profile(process_idx, counter, make_env, max_score,
                                     args, agent, env, start_time,
                                     outdir=outdir)
             else:
-                train_loop(process_idx, counter, make_env, max_score,
-                           args, agent, env, start_time, outdir=outdir)
+                self.train_loop(process_idx, counter, make_env, max_score,
+                           args, agent, env, start_time, outdir, lr, steps)
     
         async.run_async(processes, run_func)
 
