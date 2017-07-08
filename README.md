@@ -1,3 +1,7 @@
+# THIS REPO IS DEPRECATED!!!
+
+Please use something which is actually kept up to date and properly debugged such as RLLAB, https://github.com/openai/rllab
+
 # KEras Reinforcement Learning gYM agents, KeRLym
 
 This repo is intended to host a handful of reinforcement learning agents implemented using the Keras (http://keras.io/) deep learning library for Theano and Tensorflow.
